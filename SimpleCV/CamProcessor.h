@@ -30,6 +30,7 @@ private:
 	cv::Ptr<cv::SimpleBlobDetector> blobDetector;
 
 	cv::Mat erosion_dst;
+	cv::Mat im_with_keypoints;
 
 	int learnTime;
 	int timePassed;

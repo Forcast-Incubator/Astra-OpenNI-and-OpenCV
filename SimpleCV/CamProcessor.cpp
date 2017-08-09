@@ -15,6 +15,8 @@
 #define MIN_NUM_CHUNKS(data_size, chunk_size)	((((data_size)-1) / (chunk_size) + 1))
 #define MIN_CHUNKS_SIZE(data_size, chunk_size)	(MIN_NUM_CHUNKS(data_size, chunk_size) * (chunk_size))
 
+#define ASTRA_MAX_RANGE 10000
+#define ASTRA_MIN_RANGE 600
 
 CamProcessor::CamProcessor(openni::Device& device, openni::VideoStream& depth) : m_device(device), m_depthStream(depth)
 {
@@ -51,24 +53,29 @@ openni::Status CamProcessor::init(int argc, char **argv)
 
 		cv::SimpleBlobDetector::Params blobDetectorParams;
 		
+		// Filter by colour
+		blobDetectorParams.filterByColor = true;
+		blobDetectorParams.blobColor = 255;
+
 		// Change thresholds
-		blobDetectorParams.minThreshold = 10;
-		blobDetectorParams.maxThreshold = 200;
+		blobDetectorParams.minThreshold = 0;
+		blobDetectorParams.maxThreshold = 1000;
 
 		// Filter by Area.
 		blobDetectorParams.filterByArea = true;
-		blobDetectorParams.minArea = 1500;
+		blobDetectorParams.minArea = 100;
+		blobDetectorParams.maxArea = 100000;
 
 		// Filter by Circularity
-		blobDetectorParams.filterByCircularity = true;
+		blobDetectorParams.filterByCircularity = false;
 		blobDetectorParams.minCircularity = 0.1;
 
 		// Filter by Convexity
-		blobDetectorParams.filterByConvexity = true;
+		blobDetectorParams.filterByConvexity = false;
 		blobDetectorParams.minConvexity = 0.87;
 
 		// Filter by Inertia
-		blobDetectorParams.filterByInertia = true;
+		blobDetectorParams.filterByInertia = false;
 		blobDetectorParams.minInertiaRatio = 0.01;
 
 		blobDetector = cv::SimpleBlobDetector::create(blobDetectorParams);
@@ -96,9 +103,11 @@ openni::Status CamProcessor::run()
 {
 	while (true) {
 		display();
-		cv::imshow("Depth", m_cvDepthImage);
-		cv::imshow("Background Subtraction", m_foregroundMaskMOG2);
-		cv::imshow("Erosion", erosion_dst);
+		//cv::imshow("Depth", m_cvDepthImage);
+		//cv::imshow("Background Subtraction", m_foregroundMaskMOG2);
+		cv::imshow("Erosion", im_with_keypoints);
+		
+		//cv::imshow("KeyPoints", im_with_keypoints);
 		cv::waitKey(1);
 	}
 
@@ -141,9 +150,9 @@ void CamProcessor::display()
 		}
 		
 		cv::Mat image8uc1;
-		m_foregroundMaskMOG2.convertTo(image8uc1, CV_8U, 1); // CV_8U should work as well
+		//m_foregroundMaskMOG2.convertTo(image8uc1, CV_8U, 1); // CV_8U should work as well
 		
-		//cv::cvtColor(m_cvDepthImage, m_cvDepthImage, CV_BGR2GRAY);
+		//m_cvDepthImage = 8*(8000-m_cvDepthImage);
 
 		int erosion_size = 5;
 
@@ -151,8 +160,21 @@ void CamProcessor::display()
 			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
 			cv::Point(erosion_size, erosion_size));
 
-		cv::erode(image8uc1, erosion_dst, element);
+		cv::erode(m_foregroundMaskMOG2, erosion_dst, element);
+		//cv::erode(m_cvDepthImage, m_cvDepthImage, element);
 		cv::dilate(erosion_dst, erosion_dst, element);
 
+		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+
+		//m_cvDepthImage.convertTo(m_cvDepthImage, CV_8UC1, 255 / 8000, 0);
+
+		std::vector<cv::KeyPoint> keypoints;
+		blobDetector->detect(erosion_dst, keypoints);
+
+		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
+
+		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_BONE);
+
+		drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	}
 }
