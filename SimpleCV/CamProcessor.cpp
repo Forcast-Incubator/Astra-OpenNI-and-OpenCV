@@ -168,13 +168,29 @@ void CamProcessor::display()
 
 		//m_cvDepthImage.convertTo(m_cvDepthImage, CV_8UC1, 255 / 8000, 0);
 
-		std::vector<cv::KeyPoint> keypoints;
-		blobDetector->detect(erosion_dst, keypoints);
+		//std::vector<cv::KeyPoint> keypoints;
+		//blobDetector->detect(erosion_dst, keypoints);
+
+		int peopleCount = 0;
+		std::vector<std::vector<cv::Point>> contours;
+		std::vector<cv::Vec4i> hierarchy;
+		cv::findContours(erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+		cv::Mat drawing = cv::Mat::zeros(m_cvDepthImage.size(), CV_8UC3);
+		for (int i = 0; i< contours.size(); i++)
+		{
+			cv::Scalar color = cv::Scalar(255,255,255);
+			drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+
+		}
+
 
 		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
 
-		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_BONE);
+		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
 
-		drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		im_with_keypoints = drawing + erosion_dst;
+
+		//drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	}
 }
