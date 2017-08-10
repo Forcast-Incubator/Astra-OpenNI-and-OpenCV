@@ -142,23 +142,21 @@ void CamProcessor::display()
 		memcpy(m_cvDepthImage.data, depthBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
 
 		// IN PAINTING
-		/*
-		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+		
+		cv::Mat depth8Channel;
 
-		cv::imshow("m_cvDepthImage", m_cvDepthImage);
-
+		m_cvDepthImage.convertTo(depth8Channel, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 		
 		cv::Mat small_depthf, _tmp;
-		cv::resize(m_cvDepthImage, small_depthf, cv::Size(), 0.2, 0.2);
+		cv::resize(depth8Channel, small_depthf, cv::Size(), 0.2, 0.2);
 		
 		//inpaint only the "unknown" pixels
 		cv::inpaint(small_depthf, (small_depthf == 0), small_depthf, 5.0, cv::INPAINT_TELEA);
 
-		cv::resize(small_depthf, _tmp, m_cvDepthImage.size());
-		_tmp.copyTo(m_cvDepthImage, (m_cvDepthImage == 0));  //add the original signal back over the inpaint
-
-		cv::imshow("inpainted", m_cvDepthImage);
-		*/
+		cv::resize(small_depthf, _tmp, depth8Channel.size());
+		cv::Mat inpainted = depth8Channel;
+		_tmp.copyTo(inpainted, (depth8Channel == 0));  //add the original signal back over the inpaint
+		
 
 		// Background subtraction
 
@@ -206,7 +204,7 @@ void CamProcessor::display()
 		
 		std::vector<int> contourDepths(contours.size());
 
-		cv::Mat depthMinusBackground = m_cvDepthImage - (255-erosion_dst);
+		cv::Mat depthMinusBackground = inpainted - (255-erosion_dst);
 
 		cv::imshow("Depth - Background", depthMinusBackground);
 
