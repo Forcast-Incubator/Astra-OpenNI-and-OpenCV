@@ -105,7 +105,7 @@ openni::Status CamProcessor::run()
 		display();
 		//cv::imshow("Depth", m_cvDepthImage);
 		//cv::imshow("Background Subtraction", m_foregroundMaskMOG2);
-		cv::imshow("Erosion", im_with_keypoints);
+		cv::imshow("Depth Estimation", im_with_keypoints);
 		
 		//cv::imshow("KeyPoints", im_with_keypoints);
 		cv::waitKey(1);
@@ -117,6 +117,28 @@ openni::Status CamProcessor::run()
 
 void CamProcessor::display()
 {
+
+	/*
+	ALGORITHM LAYOUT
+
+	1. Grab the depth frame from the camera
+	2. Learn background model and use to segment foreground from background
+	3. Erode(5)-Dilate(10)-Erode(5) the foreground mask to remove noise
+	4. Draw contours around cleaned up forground mask (binary texture)
+	5. Use a low resolution version of the frame to inpaint the missing pixels
+	6. Calculate the centers of mass for each contour
+	7. Generate histogram for the inside of each contour from the inpainted texture
+	8. Sort the histogram and select 1-5 local maxima which satisfy a seperation requirement in the z axis
+	9. Generate a texture which contains all the points which are the same colour as the local maxima
+	10. Find the center of mass of all pixels in this texture, add to list of keypoints
+	11. Create a quarter scale version of this material, erode by 5, and find contours on this picture low resolution picture
+	12. If more than one contour is found, calculate center of mass for each contour and add it to list of keypoints
+	10. Compare all keypoints with keypoints from previous frame
+	 -> If they are within a certain magnitude from another keypoint, treat them as identical, store velocity as magnitude
+	 -> Otherwise assign a new id and save to list of keypoints
+	11. Send the positions and velocities over OSC!
+	*/
+
 	int changedIndex;
 	openni::Status rc = openni::OpenNI::waitForAnyStream(m_streams, 1, &changedIndex);
 	
@@ -174,18 +196,35 @@ void CamProcessor::display()
 		//m_cvDepthImage = 8*(8000-m_cvDepthImage);
 
 		// EROSION AND DILATION
+
 		int erosion_size = 5;
 
-		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+		cv::Mat element1 = cv::getStructuringElement(cv::MORPH_RECT,
 			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
 			cv::Point(erosion_size, erosion_size));
 
-		cv::erode(m_foregroundMaskMOG2, erosion_dst, element);
+		cv::erode(m_foregroundMaskMOG2, erosion_dst, element1);
 		//cv::erode(m_cvDepthImage, m_cvDepthImage, element);
-		cv::dilate(erosion_dst, erosion_dst, element);
+
+		erosion_size = 10;
+
+		cv::Mat element2 = cv::getStructuringElement(cv::MORPH_RECT,
+			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
+			cv::Point(erosion_size, erosion_size));
+
+		cv::dilate(erosion_dst, erosion_dst, element2);
+		cv::erode(erosion_dst, erosion_dst, element1);
 
 		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 		
+
+		// OPENING AND CLOSING
+
+		//cv::morphologyEx(m_foregroundMaskMOG2, erosion_dst, cv::MORPH_OPEN, 2, cv::Point(),1,cv::MORPH_RECT);
+		//cv::morphologyEx(m_foregroundMaskMOG2, erosion_dst, cv::MORPH_CLOSE, 5);
+
+		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+
 		/*
 		// BLOB DETECTION
 		//cv::cvtColor(erosion_dst, erosion_dst, CV_RGB2GRAY);
@@ -205,8 +244,6 @@ void CamProcessor::display()
 		std::vector<int> contourDepths(contours.size());
 
 		cv::Mat depthMinusBackground = inpainted - (255-erosion_dst);
-
-		cv::imshow("Depth - Background", depthMinusBackground);
 
 		cv::Mat drawing = cv::Mat::zeros(m_cvDepthImage.size(), CV_8UC3);
 
