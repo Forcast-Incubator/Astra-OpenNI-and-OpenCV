@@ -149,11 +149,12 @@ void CamProcessor::display()
 			MOG2BackgroundSubtractor->apply(m_cvDepthImage, m_foregroundMaskMOG2, 0);
 		}
 		
-		cv::Mat image8uc1;
+		//cv::Mat image8uc1;
 		//m_foregroundMaskMOG2.convertTo(image8uc1, CV_8U, 1); // CV_8U should work as well
 		
 		//m_cvDepthImage = 8*(8000-m_cvDepthImage);
 
+		// EROSION AND DILATION
 		int erosion_size = 5;
 
 		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE,
@@ -168,10 +169,17 @@ void CamProcessor::display()
 
 		//m_cvDepthImage.convertTo(m_cvDepthImage, CV_8UC1, 255 / 8000, 0);
 
-		//std::vector<cv::KeyPoint> keypoints;
-		//blobDetector->detect(erosion_dst, keypoints);
+		// BLOB DETECTION
+		//cv::cvtColor(erosion_dst, erosion_dst, CV_RGB2GRAY);
+		//erosion_dst = erosion_dst > 128;
+		cv::threshold(erosion_dst, erosion_dst, 128, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+		std::cout << erosion_dst.channels() << std::endl;
+		std::vector<cv::KeyPoint> keypoints;
+		blobDetector->detect(erosion_dst, keypoints);
 
-		int peopleCount = 0;
+
+		// CONTOURS
+		/*
 		std::vector<std::vector<cv::Point>> contours;
 		std::vector<cv::Vec4i> hierarchy;
 		cv::findContours(erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
@@ -183,14 +191,28 @@ void CamProcessor::display()
 			drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
 
 		}
+		*/
 
+		// HISTOGRAM
+		/*
+		int histSize = 256;
 
-		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
+		/// Set the ranges ( for B,G,R) )
+		float range[] = { 0, 256 };
+		const float* histRange = { range };
+		bool uniform = true; 
+		bool accumulate = false;
+
+		cv::Mat hist;
+		cv::calcHist(&m_cvDepthImage, 1, 0, erosion_dst, hist, 1, &histSize, &histRange, uniform, accumulate);
+		cv::imshow("Hist", hist);
+		erosion_dst = m_cvDepthImage - (255-erosion_dst);
 
 		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
+		*/
 
-		im_with_keypoints = drawing + erosion_dst;
+		im_with_keypoints = erosion_dst;
 
-		//drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	}
 }
