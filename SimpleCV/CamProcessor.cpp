@@ -166,9 +166,8 @@ void CamProcessor::display()
 		cv::dilate(erosion_dst, erosion_dst, element);
 
 		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
-
-		//m_cvDepthImage.convertTo(m_cvDepthImage, CV_8UC1, 255 / 8000, 0);
-
+		
+		/*
 		// BLOB DETECTION
 		//cv::cvtColor(erosion_dst, erosion_dst, CV_RGB2GRAY);
 		//erosion_dst = erosion_dst > 128;
@@ -176,10 +175,10 @@ void CamProcessor::display()
 		std::cout << erosion_dst.channels() << std::endl;
 		std::vector<cv::KeyPoint> keypoints;
 		blobDetector->detect(erosion_dst, keypoints);
-
+		*/
 
 		// CONTOURS
-		/*
+		
 		std::vector<std::vector<cv::Point>> contours;
 		std::vector<cv::Vec4i> hierarchy;
 		cv::findContours(erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
@@ -191,7 +190,25 @@ void CamProcessor::display()
 			drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
 
 		}
-		*/
+		
+
+		std::vector<cv::Moments> mu(contours.size());
+
+		for (int i = 0; i < contours.size(); i++)
+
+		{
+			mu[i] = moments(contours[i], false);
+		}
+
+		//Get the mass centers (image has multiple contours):
+
+		std::vector<cv::Point2f> mc(contours.size());
+
+		for (int i = 0; i < contours.size(); i++)
+
+		{
+			mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
+		}
 
 		// HISTOGRAM
 		/*
@@ -211,8 +228,17 @@ void CamProcessor::display()
 		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
 		*/
 
-		im_with_keypoints = erosion_dst;
+		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
+		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
 
-		drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		im_with_keypoints = drawing + erosion_dst;
+
+		for (int i = 0; i < mc.size(); i++)
+		{
+			cv::drawMarker(im_with_keypoints, mc[i], cv::Scalar(255, 255, 255), 0, 20, 1, 8);
+		}
+		
+
+		//drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	}
 }
