@@ -2,6 +2,6 @@
 c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(71): warning C4305: '=': truncation from 'double' to 'float'
 c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(75): warning C4305: '=': truncation from 'double' to 'float'
 c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(79): warning C4305: '=': truncation from 'double' to 'float'
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(210): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(258): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
   SimpleCV.vcxproj -> C:\Users\oscar\documents\visual studio 2015\Projects\SimpleCV\x64\Debug\SimpleCV.exe
   SimpleCV.vcxproj -> C:\Users\oscar\documents\visual studio 2015\Projects\SimpleCV\x64\Debug\SimpleCV.pdb (Partial PDB)

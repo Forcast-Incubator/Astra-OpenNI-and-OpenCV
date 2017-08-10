@@ -141,6 +141,27 @@ void CamProcessor::display()
 		m_cvDepthImage.create(m_depthFrame.getHeight(), m_depthFrame.getWidth(), CV_16UC1);
 		memcpy(m_cvDepthImage.data, depthBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
 
+		// IN PAINTING
+		/*
+		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+
+		cv::imshow("m_cvDepthImage", m_cvDepthImage);
+
+		
+		cv::Mat small_depthf, _tmp;
+		cv::resize(m_cvDepthImage, small_depthf, cv::Size(), 0.2, 0.2);
+		
+		//inpaint only the "unknown" pixels
+		cv::inpaint(small_depthf, (small_depthf == 0), small_depthf, 5.0, cv::INPAINT_TELEA);
+
+		cv::resize(small_depthf, _tmp, m_cvDepthImage.size());
+		_tmp.copyTo(m_cvDepthImage, (m_cvDepthImage == 0));  //add the original signal back over the inpaint
+
+		cv::imshow("inpainted", m_cvDepthImage);
+		*/
+
+		// Background subtraction
+
 		if (learnTime > timePassed) {
 			timePassed++;
 			MOG2BackgroundSubtractor->apply(m_cvDepthImage, m_foregroundMaskMOG2, 0.5);
@@ -148,7 +169,7 @@ void CamProcessor::display()
 		else {
 			MOG2BackgroundSubtractor->apply(m_cvDepthImage, m_foregroundMaskMOG2, 0);
 		}
-		
+
 		//cv::Mat image8uc1;
 		//m_foregroundMaskMOG2.convertTo(image8uc1, CV_8U, 1); // CV_8U should work as well
 		
@@ -182,13 +203,40 @@ void CamProcessor::display()
 		std::vector<std::vector<cv::Point>> contours;
 		std::vector<cv::Vec4i> hierarchy;
 		cv::findContours(erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+		
+		std::vector<int> contourDepths(contours.size());
+
+		cv::Mat depthMinusBackground = m_cvDepthImage - (255-erosion_dst);
+
+		cv::imshow("Depth - Background", depthMinusBackground);
 
 		cv::Mat drawing = cv::Mat::zeros(m_cvDepthImage.size(), CV_8UC3);
+
 		for (int i = 0; i< contours.size(); i++)
 		{
-			cv::Scalar color = cv::Scalar(255,255,255);
-			drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+			cv::Mat thisContour = cv::Mat::zeros(m_cvDepthImage.size(), CV_8U);
 
+			cv::Scalar color = cv::Scalar(255,255,255);
+			cv::drawContours(thisContour, contours, i, color, -1, 8, hierarchy, 0, cv::Point());
+			cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+
+			int histSize = 256;
+
+			/// Set the ranges ( for B,G,R) )
+			float range[] = { 0, 256 };
+			const float* histRange = { range };
+			bool uniform = true;
+			bool accumulate = false;
+
+			cv::Mat hist;
+			cv::calcHist(&depthMinusBackground, 1, 0, thisContour, hist, 1, &histSize, &histRange, uniform, accumulate);
+
+			double min, max;
+			int minIdX[2], maxIdX[2];
+			cv::minMaxIdx(hist, &min, &max, minIdX, maxIdX);
+			contourDepths[i] = maxIdX[0];
+
+			
 		}
 		
 
@@ -208,6 +256,7 @@ void CamProcessor::display()
 
 		{
 			mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
+
 		}
 
 		// HISTOGRAM
@@ -223,19 +272,25 @@ void CamProcessor::display()
 		cv::Mat hist;
 		cv::calcHist(&m_cvDepthImage, 1, 0, erosion_dst, hist, 1, &histSize, &histRange, uniform, accumulate);
 		cv::imshow("Hist", hist);
-		erosion_dst = m_cvDepthImage - (255-erosion_dst);
-
-		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
 		*/
+
+		//erosion_dst = m_cvDepthImage - (255-erosion_dst);
+
+		//applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
+		
 
 		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
 		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
 
-		im_with_keypoints = drawing + erosion_dst;
+		im_with_keypoints = erosion_dst + drawing;
 
+		
 		for (int i = 0; i < mc.size(); i++)
 		{
-			cv::drawMarker(im_with_keypoints, mc[i], cv::Scalar(255, 255, 255), 0, 20, 1, 8);
+			if (contourDepths[i] > 0) {
+				cv::drawMarker(im_with_keypoints, mc[i], cv::Scalar(255, 255, 255), 0, 20, 1, 8);
+				cv::putText(im_with_keypoints, cv::String(std::to_string(contourDepths[i])), mc[i], cv::FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+			}
 		}
 		
 
