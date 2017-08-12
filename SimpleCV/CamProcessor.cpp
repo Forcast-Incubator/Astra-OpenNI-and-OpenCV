@@ -197,23 +197,23 @@ void CamProcessor::display()
 
 		// EROSION AND DILATION
 
-		int erosion_size = 5;
+		int kernel_size = 5;
 
-		cv::Mat element1 = cv::getStructuringElement(cv::MORPH_RECT,
-			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
-			cv::Point(erosion_size, erosion_size));
+		cv::Mat erosionElement1 = cv::getStructuringElement(cv::MORPH_RECT,
+			cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
+			cv::Point(kernel_size, kernel_size));
 
-		cv::erode(m_foregroundMaskMOG2, erosion_dst, element1);
+		cv::erode(m_foregroundMaskMOG2, erosion_dst, erosionElement1);
 		//cv::erode(m_cvDepthImage, m_cvDepthImage, element);
 
-		erosion_size = 10;
+		kernel_size = 10;
 
-		cv::Mat element2 = cv::getStructuringElement(cv::MORPH_RECT,
-			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
-			cv::Point(erosion_size, erosion_size));
+		cv::Mat erosionElement2 = cv::getStructuringElement(cv::MORPH_RECT,
+			cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
+			cv::Point(kernel_size, kernel_size));
 
-		cv::dilate(erosion_dst, erosion_dst, element2);
-		cv::erode(erosion_dst, erosion_dst, element1);
+		cv::dilate(erosion_dst, erosion_dst, erosionElement2);
+		cv::erode(erosion_dst, erosion_dst, erosionElement1);
 
 		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 		
@@ -223,7 +223,7 @@ void CamProcessor::display()
 		//cv::morphologyEx(m_foregroundMaskMOG2, erosion_dst, cv::MORPH_OPEN, 2, cv::Point(),1,cv::MORPH_RECT);
 		//cv::morphologyEx(m_foregroundMaskMOG2, erosion_dst, cv::MORPH_CLOSE, 5);
 
-		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+		//m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 
 		/*
 		// BLOB DETECTION
@@ -242,6 +242,7 @@ void CamProcessor::display()
 		cv::findContours(erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 		
 		std::vector<int> contourDepths(contours.size());
+		std::vector<int> contourSizes(contours.size());
 
 		cv::Mat depthMinusBackground = inpainted - (255-erosion_dst);
 
@@ -253,7 +254,6 @@ void CamProcessor::display()
 
 			cv::Scalar color = cv::Scalar(255,255,255);
 			cv::drawContours(thisContour, contours, i, color, -1, 8, hierarchy, 0, cv::Point());
-			cv::drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
 
 			int histSize = 256;
 
@@ -270,8 +270,12 @@ void CamProcessor::display()
 			int minIdX[2], maxIdX[2];
 			cv::minMaxIdx(hist, &min, &max, minIdX, maxIdX);
 			contourDepths[i] = maxIdX[0];
-
+			contourSizes[i] = max;
 			
+			if (contourDepths[i] > 0 && contourSizes[i] > 200) {
+				cv::drawContours(drawing, contours, i, cv::Scalar(255-maxIdX[0]*2, maxIdX[0], 255), 1, 8, hierarchy, 0, cv::Point());
+			}
+
 		}
 		
 
@@ -322,9 +326,9 @@ void CamProcessor::display()
 		
 		for (int i = 0; i < mc.size(); i++)
 		{
-			if (contourDepths[i] > 0) {
+			if (contourDepths[i] > 0 && contourSizes[i] > 200) {
 				cv::drawMarker(im_with_keypoints, mc[i], cv::Scalar(255, 255, 255), 0, 20, 1, 8);
-				cv::putText(im_with_keypoints, cv::String(std::to_string(contourDepths[i])), mc[i], cv::FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+				cv::putText(im_with_keypoints, std::to_string(contourDepths[i]), mc[i], cv::FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
 			}
 		}
 		
