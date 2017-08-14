@@ -167,7 +167,8 @@ void CamProcessor::display()
 		
 		cv::Mat depth8Channel;
 
-		m_cvDepthImage.convertTo(depth8Channel, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+		m_cvDepthImage.convertTo(depth8Channel, CV_8UC1, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+		//m_cvDepthImage.convertTo(depth8Channel, CV_8U, 0.00390625, 0);
 		
 		cv::Mat small_depthf, _tmp;
 		cv::resize(depth8Channel, small_depthf, cv::Size(), 0.2, 0.2);
@@ -178,7 +179,6 @@ void CamProcessor::display()
 		cv::resize(small_depthf, _tmp, depth8Channel.size());
 		cv::Mat inpainted = depth8Channel;
 		_tmp.copyTo(inpainted, (depth8Channel == 0));  //add the original signal back over the inpaint
-		
 
 		// Background subtraction
 
@@ -190,11 +190,6 @@ void CamProcessor::display()
 			MOG2BackgroundSubtractor->apply(m_cvDepthImage, m_foregroundMaskMOG2, 0);
 		}
 
-		//cv::Mat image8uc1;
-		//m_foregroundMaskMOG2.convertTo(image8uc1, CV_8U, 1); // CV_8U should work as well
-		
-		//m_cvDepthImage = 8*(8000-m_cvDepthImage);
-
 		// EROSION AND DILATION
 
 		int kernel_size = 5;
@@ -204,7 +199,6 @@ void CamProcessor::display()
 			cv::Point(kernel_size, kernel_size));
 
 		cv::erode(m_foregroundMaskMOG2, erosion_dst, erosionElement1);
-		//cv::erode(m_cvDepthImage, m_cvDepthImage, element);
 
 		kernel_size = 10;
 
@@ -216,24 +210,6 @@ void CamProcessor::display()
 		cv::erode(erosion_dst, erosion_dst, erosionElement1);
 
 		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
-		
-
-		// OPENING AND CLOSING
-
-		//cv::morphologyEx(m_foregroundMaskMOG2, erosion_dst, cv::MORPH_OPEN, 2, cv::Point(),1,cv::MORPH_RECT);
-		//cv::morphologyEx(m_foregroundMaskMOG2, erosion_dst, cv::MORPH_CLOSE, 5);
-
-		//m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
-
-		/*
-		// BLOB DETECTION
-		//cv::cvtColor(erosion_dst, erosion_dst, CV_RGB2GRAY);
-		//erosion_dst = erosion_dst > 128;
-		cv::threshold(erosion_dst, erosion_dst, 128, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-		std::cout << erosion_dst.channels() << std::endl;
-		std::vector<cv::KeyPoint> keypoints;
-		blobDetector->detect(erosion_dst, keypoints);
-		*/
 
 		// CONTOURS
 		
@@ -299,24 +275,6 @@ void CamProcessor::display()
 		}
 
 		// HISTOGRAM
-		/*
-		int histSize = 256;
-
-		/// Set the ranges ( for B,G,R) )
-		float range[] = { 0, 256 };
-		const float* histRange = { range };
-		bool uniform = true; 
-		bool accumulate = false;
-
-		cv::Mat hist;
-		cv::calcHist(&m_cvDepthImage, 1, 0, erosion_dst, hist, 1, &histSize, &histRange, uniform, accumulate);
-		cv::imshow("Hist", hist);
-		*/
-
-		//erosion_dst = m_cvDepthImage - (255-erosion_dst);
-
-		//applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
-		
 
 		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
 		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
