@@ -3,6 +3,10 @@
 #define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
+#ifndef OSCPKT_OSTREAM_OUTPUT
+#define OSCPKT_OSTREAM_OUTPUT
+#endif
+
 #include "CamProcessor.h"
 #include "OniSampleUtilities.h"
 
@@ -36,6 +40,13 @@ CamProcessor::~CamProcessor()
 
 openni::Status CamProcessor::init(int argc, char **argv)
 {
+	/*
+	std::cout << "Please enter a port number to send data over (Default: 9109, Range: 1 to 65535) : " << std::endl << "> ";
+	std::string input;
+	std::cin >> input;
+	int stoi(const input&  str, size_t* idx = 0, int base = 10);
+	*/
+
 	openni::VideoMode depthVideoMode;
 
 	if (m_depthStream.isValid())
@@ -101,14 +112,24 @@ openni::Status CamProcessor::init(int argc, char **argv)
 
 openni::Status CamProcessor::run()
 {
-	while (true) {
-		display();
-		//cv::imshow("Depth", m_cvDepthImage);
-		//cv::imshow("Background Subtraction", m_foregroundMaskMOG2);
-		cv::imshow("Depth Estimation", im_with_keypoints);
-		
-		//cv::imshow("KeyPoints", im_with_keypoints);
-		cv::waitKey(1);
+	sock.connectTo("localhost", portNumber);
+	if (!sock.isOk()) {
+		std::cerr << "Error connection to port " << portNumber << ": " << sock.errorMessage() << "\n";
+	}
+	else {
+		std::cout << "Client started, will send packets to port " << portNumber << std::endl;
+
+		while (sock.isOk()) {
+			display();
+			//cv::imshow("Depth", m_cvDepthImage);
+			//cv::imshow("Background Subtraction", m_foregroundMaskMOG2);
+			cv::imshow("Depth Estimation", im_with_keypoints);
+
+			//cv::imshow("KeyPoints", im_with_keypoints);
+			cv::waitKey(1);
+		}
+
+		std::cout << "sock error: " << sock.errorMessage() << " -- is the server running?\n";
 	}
 
 	return openni::STATUS_OK;
@@ -271,13 +292,12 @@ void CamProcessor::display()
 
 		{
 			mc[i] = cv::Point2f(mu[i].m10 / mu[i].m00, mu[i].m01 / mu[i].m00);
-
 		}
 
 		// HISTOGRAM
 
 		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
-		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_JET);
+		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_HSV);
 
 		im_with_keypoints = erosion_dst + drawing;
 
@@ -287,6 +307,31 @@ void CamProcessor::display()
 			if (contourDepths[i] > 0 && contourSizes[i] > 200) {
 				cv::drawMarker(im_with_keypoints, mc[i], cv::Scalar(255, 255, 255), 0, 20, 1, 8);
 				cv::putText(im_with_keypoints, std::to_string(contourDepths[i]), mc[i], cv::FONT_HERSHEY_SCRIPT_SIMPLEX, 0.5, cv::Scalar(255, 255, 255));
+
+				// send X
+				std::stringstream msgText;
+				msgText << "/contour/" << i << "/x";
+				oscpkt::Message msg(msgText.str());
+				msg.pushFloat(mc[i].x);
+				oscpkt::PacketWriter pw;
+				pw.startBundle().startBundle().addMessage(msg);
+
+				// send Y
+				msgText.str(std::string());
+				msgText << "/contour/" << i << "/y";
+				msg = msgText.str();
+				msg.pushFloat(mc[i].y);
+				pw.addMessage(msg);
+
+				// send Z
+				msgText.str(std::string());
+				msgText << "/contour/" << i << "/z";
+				msg = msgText.str();
+				msg.pushInt32(contourDepths[i]);
+				pw.addMessage(msg).endBundle().endBundle();
+
+				bool ok = sock.sendPacket(pw.packetData(), pw.packetSize());
+				std::cout << "Client: sent /contour/" << i << ", ok: " << ok << std::endl;
 			}
 		}
 		
@@ -294,3 +339,5 @@ void CamProcessor::display()
 		//drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	}
 }
+
+

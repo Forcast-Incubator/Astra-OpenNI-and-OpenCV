@@ -1,8 +1,14 @@
 ﻿  CamProcessor.cpp
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(71): warning C4305: '=': truncation from 'double' to 'float'
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(75): warning C4305: '=': truncation from 'double' to 'float'
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(79): warning C4305: '=': truncation from 'double' to 'float'
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(250): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(274): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(82): warning C4305: '=': truncation from 'double' to 'float'
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(86): warning C4305: '=': truncation from 'double' to 'float'
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(90): warning C4305: '=': truncation from 'double' to 'float'
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(270): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(294): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+  Generating Code...
+  Compiling...
+  main.cpp
+c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+  Generating Code...
   SimpleCV.vcxproj -> C:\Users\oscar\documents\visual studio 2015\Projects\SimpleCV\x64\Debug\SimpleCV.exe
   SimpleCV.vcxproj -> C:\Users\oscar\documents\visual studio 2015\Projects\SimpleCV\x64\Debug\SimpleCV.pdb (Partial PDB)

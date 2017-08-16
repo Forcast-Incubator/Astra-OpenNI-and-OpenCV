@@ -2,6 +2,9 @@
 #include <OpenNI.h>
 #include <opencv2/opencv.hpp>
 
+#include "oscpkt/oscpkt.hh"
+#include "oscpkt/udp.hh"
+
 class CamProcessor
 {
 public:
@@ -34,5 +37,8 @@ private:
 
 	int learnTime;
 	int timePassed;
+
+	const int portNumber = 9109;
+	oscpkt::UdpSocket sock;
 };
 
