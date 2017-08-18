@@ -24,12 +24,13 @@
 
 CamProcessor::CamProcessor(openni::Device& device, openni::VideoStream& depth) : m_device(device), m_depthStream(depth)
 {
-
+	// assign references to depth stream and device to member variables
 }
 
 
 CamProcessor::~CamProcessor()
 {
+	// destructor makes sure all streams and buffers are correctly deleted
 	delete[] depthBuffer;
 	if (m_streams != NULL)
 	{
@@ -40,57 +41,21 @@ CamProcessor::~CamProcessor()
 
 openni::Status CamProcessor::init(int argc, char **argv)
 {
-	/*
-	std::cout << "Please enter a port number to send data over (Default: 9109, Range: 1 to 65535) : " << std::endl << "> ";
-	std::string input;
-	std::cin >> input;
-	int stoi(const input&  str, size_t* idx = 0, int base = 10);
-	*/
-
 	openni::VideoMode depthVideoMode;
 
 	if (m_depthStream.isValid())
 	{
+		// store video mode
 		depthVideoMode = m_depthStream.getVideoMode();
 
-		// Init OpenCV parameters
+		// Initialise background subtractor
 		MOG2BackgroundSubtractor = cv::createBackgroundSubtractorMOG2();
-		MOG2BackgroundSubtractor->setBackgroundRatio(0.7);
-		MOG2BackgroundSubtractor->setNMixtures(5);
-		MOG2BackgroundSubtractor->setHistory(200);
-		MOG2BackgroundSubtractor->setVarThreshold(1000);
-		MOG2BackgroundSubtractor->setDetectShadows(false);
+		MOG2BackgroundSubtractor->setNMixtures(5);			//number of gaussian components in the background model
+		MOG2BackgroundSubtractor->setHistory(200);			//number of last frames that affect the background model
+		MOG2BackgroundSubtractor->setVarThreshold(1000);	//variance threshold for the pixel-model match
+		MOG2BackgroundSubtractor->setDetectShadows(false);	//don't mark shadows (only useful for color frames)
 
-
-		cv::SimpleBlobDetector::Params blobDetectorParams;
-		
-		// Filter by colour
-		blobDetectorParams.filterByColor = true;
-		blobDetectorParams.blobColor = 255;
-
-		// Change thresholds
-		blobDetectorParams.minThreshold = 0;
-		blobDetectorParams.maxThreshold = 1000;
-
-		// Filter by Area.
-		blobDetectorParams.filterByArea = true;
-		blobDetectorParams.minArea = 100;
-		blobDetectorParams.maxArea = 100000;
-
-		// Filter by Circularity
-		blobDetectorParams.filterByCircularity = false;
-		blobDetectorParams.minCircularity = 0.1;
-
-		// Filter by Convexity
-		blobDetectorParams.filterByConvexity = false;
-		blobDetectorParams.minConvexity = 0.87;
-
-		// Filter by Inertia
-		blobDetectorParams.filterByInertia = false;
-		blobDetectorParams.minInertiaRatio = 0.01;
-
-		blobDetector = cv::SimpleBlobDetector::create(blobDetectorParams);
-
+		// initialise time variables used for updating background model
 		timePassed = 0;
 		learnTime = 10;
 	}
@@ -99,13 +64,28 @@ openni::Status CamProcessor::init(int argc, char **argv)
 		return openni::STATUS_ERROR;
 	}
 
+	// set up OpenNI streams
 	m_streams = new openni::VideoStream*[1];
 	m_streams[0] = &m_depthStream;
 
+	// store depth buffer size
 	depthBufferX = MIN_CHUNKS_SIZE(depthVideoMode.getResolutionX(), TEXTURE_SIZE);
 	depthBufferY = MIN_CHUNKS_SIZE(depthVideoMode.getResolutionY(), TEXTURE_SIZE);
 
+	// initialise openNI version of \ depth buffer
 	depthBuffer = new openni::DepthPixel[depthBufferX * depthBufferY];
+
+	int kernel_size = 5;
+
+	m_rectElement1 = cv::getStructuringElement(cv::MORPH_RECT,
+		cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
+		cv::Point(kernel_size, kernel_size));
+
+	kernel_size = 10;
+
+	m_rectElement2 = cv::getStructuringElement(cv::MORPH_RECT,
+		cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
+		cv::Point(kernel_size, kernel_size));
 
 	return openni::STATUS_OK;
 }
@@ -123,9 +103,9 @@ openni::Status CamProcessor::run()
 			display();
 			//cv::imshow("Depth", m_cvDepthImage);
 			//cv::imshow("Background Subtraction", m_foregroundMaskMOG2);
-			cv::imshow("Depth Estimation", im_with_keypoints);
+			//cv::imshow("Depth Estimation", im_with_keypoints);
 
-			//cv::imshow("KeyPoints", im_with_keypoints);
+			cv::imshow("KeyPoints", im_with_keypoints);
 			cv::waitKey(1);
 		}
 
@@ -135,31 +115,8 @@ openni::Status CamProcessor::run()
 	return openni::STATUS_OK;
 }
 
-
 void CamProcessor::display()
 {
-
-	/*
-	ALGORITHM LAYOUT
-
-	1. Grab the depth frame from the camera
-	2. Learn background model and use to segment foreground from background
-	3. Erode(5)-Dilate(10)-Erode(5) the foreground mask to remove noise
-	4. Draw contours around cleaned up forground mask (binary texture)
-	5. Use a low resolution version of the frame to inpaint the missing pixels
-	6. Calculate the centers of mass for each contour
-	7. Generate histogram for the inside of each contour from the inpainted texture
-	8. Sort the histogram and select 1-5 local maxima which satisfy a seperation requirement in the z axis
-	9. Generate a texture which contains all the points which are the same colour as the local maxima
-	10. Find the center of mass of all pixels in this texture, add to list of keypoints
-	11. Create a quarter scale version of this material, erode by 5, and find contours on this picture low resolution picture
-	12. If more than one contour is found, calculate center of mass for each contour and add it to list of keypoints
-	10. Compare all keypoints with keypoints from previous frame
-	 -> If they are within a certain magnitude from another keypoint, treat them as identical, store velocity as magnitude
-	 -> Otherwise assign a new id and save to list of keypoints
-	11. Send the positions and velocities over OSC!
-	*/
-
 	int changedIndex;
 	openni::Status rc = openni::OpenNI::waitForAnyStream(m_streams, 1, &changedIndex);
 	
@@ -184,24 +141,19 @@ void CamProcessor::display()
 		m_cvDepthImage.create(m_depthFrame.getHeight(), m_depthFrame.getWidth(), CV_16UC1);
 		memcpy(m_cvDepthImage.data, depthBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
 
-		// IN PAINTING
-		
-		cv::Mat depth8Channel;
+		/***** IN-PAINTING ******/
+		m_cvDepthImage.convertTo(m_depth8Channel, CV_8UC1, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 
-		m_cvDepthImage.convertTo(depth8Channel, CV_8UC1, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
-		//m_cvDepthImage.convertTo(depth8Channel, CV_8U, 0.00390625, 0);
-		
-		cv::Mat small_depthf, _tmp;
-		cv::resize(depth8Channel, small_depthf, cv::Size(), 0.2, 0.2);
+		cv::resize(m_depth8Channel, m_small_depth, cv::Size(), 0.2, 0.2);
 		
 		//inpaint only the "unknown" pixels
-		cv::inpaint(small_depthf, (small_depthf == 0), small_depthf, 5.0, cv::INPAINT_TELEA);
+		cv::inpaint(m_small_depth, (m_small_depth == 0), m_small_depth, 5.0, cv::INPAINT_TELEA);
 
-		cv::resize(small_depthf, _tmp, depth8Channel.size());
-		cv::Mat inpainted = depth8Channel;
-		_tmp.copyTo(inpainted, (depth8Channel == 0));  //add the original signal back over the inpaint
+		cv::resize(m_small_depth, m_tmp, m_depth8Channel.size());
+		m_inpainted = m_depth8Channel;
+		m_tmp.copyTo(m_inpainted, (m_depth8Channel == 0));  //add the original signal back over the inpaint
 
-		// Background subtraction
+		/***** BACKGROUND SUBTRACTION ******/
 
 		if (learnTime > timePassed) {
 			timePassed++;
@@ -212,38 +164,22 @@ void CamProcessor::display()
 		}
 
 		// EROSION AND DILATION
+		cv::erode(m_foregroundMaskMOG2, m_erosion_dst, m_rectElement1);
 
-		int kernel_size = 5;
-
-		cv::Mat erosionElement1 = cv::getStructuringElement(cv::MORPH_RECT,
-			cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
-			cv::Point(kernel_size, kernel_size));
-
-		cv::erode(m_foregroundMaskMOG2, erosion_dst, erosionElement1);
-
-		kernel_size = 10;
-
-		cv::Mat erosionElement2 = cv::getStructuringElement(cv::MORPH_RECT,
-			cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
-			cv::Point(kernel_size, kernel_size));
-
-		cv::dilate(erosion_dst, erosion_dst, erosionElement2);
-		cv::erode(erosion_dst, erosion_dst, erosionElement1);
+		cv::dilate(m_erosion_dst, m_erosion_dst, m_rectElement2);
+		cv::erode(m_erosion_dst, m_erosion_dst, m_rectElement1);
 
 		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 
 		// CONTOURS
-		
-		std::vector<std::vector<cv::Point>> contours;
-		std::vector<cv::Vec4i> hierarchy;
-		cv::findContours(erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+		cv::findContours(m_erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 		
 		std::vector<int> contourDepths(contours.size());
 		std::vector<int> contourSizes(contours.size());
 
-		cv::Mat depthMinusBackground = inpainted - (255-erosion_dst);
+		m_depthMinusBackground = m_inpainted - (255-m_erosion_dst);
 
-		cv::Mat drawing = cv::Mat::zeros(m_cvDepthImage.size(), CV_8UC3);
+		m_drawingMat = cv::Mat::zeros(m_cvDepthImage.size(), CV_8UC3);
 
 		for (int i = 0; i< contours.size(); i++)
 		{
@@ -261,7 +197,7 @@ void CamProcessor::display()
 			bool accumulate = false;
 
 			cv::Mat hist;
-			cv::calcHist(&depthMinusBackground, 1, 0, thisContour, hist, 1, &histSize, &histRange, uniform, accumulate);
+			cv::calcHist(&m_depthMinusBackground, 1, 0, thisContour, hist, 1, &histSize, &histRange, uniform, accumulate);
 
 			double min, max;
 			int minIdX[2], maxIdX[2];
@@ -270,7 +206,7 @@ void CamProcessor::display()
 			contourSizes[i] = max;
 			
 			if (contourDepths[i] > 0 && contourSizes[i] > 200) {
-				cv::drawContours(drawing, contours, i, cv::Scalar(255-maxIdX[0]*2, maxIdX[0], 255), 1, 8, hierarchy, 0, cv::Point());
+				cv::drawContours(m_drawingMat, contours, i, cv::Scalar(255-maxIdX[0]*2, maxIdX[0], 255), 1, 8, hierarchy, 0, cv::Point());
 			}
 
 		}
@@ -296,12 +232,11 @@ void CamProcessor::display()
 
 		// HISTOGRAM
 
-		erosion_dst = m_cvDepthImage - (255 - erosion_dst);
-		applyColorMap(erosion_dst, erosion_dst, cv::COLORMAP_HSV);
+		m_erosion_dst = m_cvDepthImage - (255 - m_erosion_dst);
+		applyColorMap(m_erosion_dst, m_erosion_dst, cv::COLORMAP_HSV);
 
-		im_with_keypoints = erosion_dst + drawing;
+		im_with_keypoints = m_erosion_dst + m_drawingMat;
 
-		
 		for (int i = 0; i < mc.size(); i++)
 		{
 			if (contourDepths[i] > 0 && contourSizes[i] > 200) {
@@ -311,27 +246,27 @@ void CamProcessor::display()
 				// send X
 				std::stringstream msgText;
 				msgText << "/contour/" << i << "/x";
-				oscpkt::Message msg(msgText.str());
-				msg.pushFloat(mc[i].x);
-				oscpkt::PacketWriter pw;
-				pw.startBundle().startBundle().addMessage(msg);
+				m_oscMessage = msgText.str();
+				m_oscMessage.pushFloat(mc[i].x);
+				
+				m_packetWriter.startBundle().startBundle().addMessage(m_oscMessage);
 
 				// send Y
 				msgText.str(std::string());
 				msgText << "/contour/" << i << "/y";
-				msg = msgText.str();
-				msg.pushFloat(mc[i].y);
-				pw.addMessage(msg);
+				m_oscMessage = msgText.str();
+				m_oscMessage.pushFloat(mc[i].y);
+				m_packetWriter.addMessage(m_oscMessage);
 
 				// send Z
 				msgText.str(std::string());
 				msgText << "/contour/" << i << "/z";
-				msg = msgText.str();
-				msg.pushInt32(contourDepths[i]);
-				pw.addMessage(msg).endBundle().endBundle();
+				m_oscMessage = msgText.str();
+				m_oscMessage.pushInt32(contourDepths[i]);
+				m_packetWriter.addMessage(m_oscMessage).endBundle().endBundle();
 
-				bool ok = sock.sendPacket(pw.packetData(), pw.packetSize());
-				std::cout << "Client: sent /contour/" << i << ", ok: " << ok << std::endl;
+				bool ok = sock.sendPacket(m_packetWriter.packetData(), m_packetWriter.packetSize());
+				//std::cout << "Client: sent /contour/" << i << ", ok: " << ok << std::endl;
 			}
 		}
 		
