@@ -30,6 +30,11 @@ private:
 	cv::Mat m_cvDepthImage;
 	cv::Mat m_foregroundMaskMOG2;
 	cv::Ptr<cv::BackgroundSubtractorMOG2> MOG2BackgroundSubtractor;
+	
+	std::vector<cv::Point2f> features_prev, features_next;
+	std::vector<cv::Point3f> depth_features, depth_features_prev, depth_features_next;
+	int numFeaturesX, numFeaturesY;
+	bool initialised;
 
 	cv::Mat m_erosion_dst;
 	cv::Mat im_with_keypoints;
@@ -39,6 +44,7 @@ private:
 	cv::Mat m_rectElement1, m_rectElement2;
 	cv::Mat m_depthMinusBackground;
 	cv::Mat m_drawingMat;
+	cv::Mat m_imgPrev;
 
 	oscpkt::PacketWriter m_packetWriter;
 	oscpkt::Message m_oscMessage;

@@ -11,8 +11,11 @@
 #include "OniSampleUtilities.h"
 
 #define GL_WIN_SIZE_X	1024
-#define GL_WIN_SIZE_Y	768
+#define GL_WIN_SIZE_Y	512
 #define TEXTURE_SIZE	512
+
+#define ASTRA_DEPTH_WIDTH 640
+#define ASTRA_DEPTH_HEIGHT 480
 
 #define DEFAULT_DISPLAY_MODE	DISPLAY_MODE_DEPTH
 
@@ -42,6 +45,7 @@ CamProcessor::~CamProcessor()
 openni::Status CamProcessor::init(int argc, char **argv)
 {
 	openni::VideoMode depthVideoMode;
+	initialised = false;
 
 	if (m_depthStream.isValid())
 	{
@@ -86,6 +90,24 @@ openni::Status CamProcessor::init(int argc, char **argv)
 	m_rectElement2 = cv::getStructuringElement(cv::MORPH_RECT,
 		cv::Size(2 * kernel_size + 1, 2 * kernel_size + 1),
 		cv::Point(kernel_size, kernel_size));
+
+	// OPTICAL FLOW SET UP
+
+	numFeaturesX = 30;
+	numFeaturesY = 20;
+	for (int i = 0; i < numFeaturesX; i++)
+	{
+		for (int j = 0; j < numFeaturesY; j++)
+		{
+			features_prev.push_back(
+				cv::Point2f((ASTRA_DEPTH_WIDTH /numFeaturesX) * i + (ASTRA_DEPTH_WIDTH /(numFeaturesX*2)), 
+				(ASTRA_DEPTH_HEIGHT / numFeaturesY) * j + (ASTRA_DEPTH_HEIGHT /(numFeaturesY*2))));
+
+		}
+	}
+
+	cv::namedWindow("KeyPoints", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+	cv::resizeWindow("KeyPoints", 640, 480);
 
 	return openni::STATUS_OK;
 }
@@ -154,23 +176,65 @@ void CamProcessor::display()
 		m_tmp.copyTo(m_inpainted, (m_depth8Channel == 0));  //add the original signal back over the inpaint
 
 		/***** BACKGROUND SUBTRACTION ******/
-
+		/*
 		if (learnTime > timePassed) {
-			timePassed++;
 			MOG2BackgroundSubtractor->apply(m_cvDepthImage, m_foregroundMaskMOG2, 0.5);
 		}
 		else {
 			MOG2BackgroundSubtractor->apply(m_cvDepthImage, m_foregroundMaskMOG2, 0);
 		}
+		
 
 		// EROSION AND DILATION
 		cv::erode(m_foregroundMaskMOG2, m_erosion_dst, m_rectElement1);
 
 		cv::dilate(m_erosion_dst, m_erosion_dst, m_rectElement2);
 		cv::erode(m_erosion_dst, m_erosion_dst, m_rectElement1);
+		*/
 
 		m_cvDepthImage.convertTo(m_cvDepthImage, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 
+		// OPTICAL FLOW
+		std::vector<uchar> status;
+		std::vector<float> err;
+
+		if (timePassed > learnTime) {
+			features_prev.clear();
+			for (int i = 0; i < numFeaturesX; i++)
+			{
+				for (int j = 0; j < numFeaturesY; j++)
+				{
+					features_prev.push_back(cv::Point2f((ASTRA_DEPTH_WIDTH / numFeaturesX) * i + (ASTRA_DEPTH_WIDTH / (numFeaturesX * 2)),
+						(ASTRA_DEPTH_HEIGHT / numFeaturesY) * j + (ASTRA_DEPTH_HEIGHT / (numFeaturesY * 2))));
+				}
+			}
+			timePassed = 0;
+			
+		}
+		if(initialised == false)
+		{
+			initialised = true;
+			m_imgPrev = m_inpainted.clone();
+		}
+
+		cv::calcOpticalFlowPyrLK(m_imgPrev, m_inpainted, features_prev, features_next, status, err,cv::Size(9,9));
+		m_imgPrev = m_inpainted.clone();
+		
+		depth_features.clear();
+		for (int i = 0; i < features_next.size(); i++)
+		{
+			cv::Scalar colour;
+			if (features_next[i].x >= ASTRA_DEPTH_WIDTH || features_next[i].x <= 0|| features_next[i].y >= ASTRA_DEPTH_HEIGHT || features_next[i].y <= 0)
+			{
+				colour = cv::Scalar(5);
+			}
+			else {
+				colour = m_cvDepthImage.at<uchar>(cv::Point((int)features_next[i].x, (int)features_next[i].y));
+			}
+			depth_features.push_back(cv::Point3f(features_next[i].x, features_next[i].y, colour.val[0]));
+		}
+
+		/*
 		// CONTOURS
 		cv::findContours(m_erosion_dst, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 		
@@ -269,9 +333,34 @@ void CamProcessor::display()
 				//std::cout << "Client: sent /contour/" << i << ", ok: " << ok << std::endl;
 			}
 		}
-		
+		*/
 
-		//drawKeypoints(erosion_dst, keypoints, im_with_keypoints, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+		im_with_keypoints = m_inpainted.clone();
+
+		for (int i = 0; i < features_next.size(); i++)
+		{
+			
+			int markerSize = (255 / (depth_features[i].z));
+			if (markerSize < 100 && markerSize > 0) {
+				if (depth_features[i].z < 50 && depth_features[i].z >0) {
+					
+
+					if (timePassed > 0) {
+						cv::Point diff = features_prev[i] - features_next[i];
+						
+						float mag = cv::sqrt(diff.x*diff.x + diff.y*diff.y);
+						if (mag < 50.0f && mag > 0.0f)
+						{
+							cv::drawMarker(im_with_keypoints, features_next[i], cv::Scalar(255, 255, 255), cv::MARKER_DIAMOND, markerSize, 1, 0);
+							cv::line(im_with_keypoints, features_prev[i], features_next[i], cv::Scalar(255, 255, 255));
+						}
+					}
+				}
+			}
+		}
+
+		timePassed++;
+		features_prev = features_next;
 	}
 }
 

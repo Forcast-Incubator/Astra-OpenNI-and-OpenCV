@@ -1,6 +1,9 @@
 ﻿  CamProcessor.cpp
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(206): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-c:\users\oscar\documents\visual studio 2015\projects\simplecv\simplecv\camprocessor.cpp(230): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
-  SimpleCV.vcxproj -> C:\Users\oscar\documents\visual studio 2015\Projects\SimpleCV\x64\Debug\SimpleCV.exe
-  SimpleCV.vcxproj -> C:\Users\oscar\documents\visual studio 2015\Projects\SimpleCV\x64\Debug\SimpleCV.pdb (Partial PDB)
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(104): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(208): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(234): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(343): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(351): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Debug\SimpleCV.exe
+  SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Debug\SimpleCV.pdb (Partial PDB)

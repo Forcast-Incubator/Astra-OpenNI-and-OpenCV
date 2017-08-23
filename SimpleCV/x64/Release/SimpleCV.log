@@ -1,0 +1,13 @@
+﻿  CamProcessor.cpp
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oscpkt/udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+CamProcessor.cpp(206): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+CamProcessor.cpp(230): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+  main.cpp
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oscpkt/udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+  Generating code
+  1 of 942 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Release\SimpleCV.exe
+  SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Release\SimpleCV.pdb (Full PDB)
