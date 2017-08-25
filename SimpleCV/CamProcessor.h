@@ -5,55 +5,53 @@
 #include "oscpkt/oscpkt.hh"
 #include "oscpkt/udp.hh"
 
+using namespace cv;
+using namespace openni;
+using namespace std;
+using namespace oscpkt;
+
 class CamProcessor
 {
 public:
-	CamProcessor(openni::Device& device, openni::VideoStream& depth);
+	CamProcessor(Device& device, VideoStream& depth);
 	~CamProcessor();
 
-	virtual openni::Status init(int argc, char **argv);
-	virtual openni::Status run();
+	virtual Status init(int argc, char **argv);
+	virtual Status run();
 
 	virtual void display();
 
-	openni::VideoFrameRef	m_depthFrame;
-	openni::Device&			m_device;
-	openni::VideoStream&	m_depthStream;
-	openni::VideoStream**	m_streams;
+	VideoFrameRef	m_depthFrame;
+	Device&			m_device;
+	VideoStream&	m_depthStream;
+	VideoStream**	m_streams;
 
 private:
-	const openni::DepthPixel* depthBuffer;
+	const DepthPixel* m_depthPixelBuffer;
 
-	unsigned int depthBufferX;
-	unsigned int depthBufferY;
+	Mat m_cvDepthImage;
 
-	cv::Mat m_cvDepthImage;
-	cv::Mat m_foregroundMaskMOG2;
-	cv::Ptr<cv::BackgroundSubtractorMOG2> MOG2BackgroundSubtractor;
-	
-	std::vector<cv::Point2f> features_prev, features_next;
-	std::vector<cv::Point3f> depth_features, depth_features_prev, depth_features_next;
-	int numFeaturesX, numFeaturesY;
-	bool initialised;
+	vector<Point2f> m_features_prev, m_features_next;
+	int m_numFeaturesX, m_numFeaturesY;
+	bool m_intialised;
 
-	cv::Mat m_erosion_dst;
-	cv::Mat im_with_keypoints;
-	cv::Mat m_depth8Channel;
-	cv::Mat m_inpainted;
-	cv::Mat m_small_depth, m_tmp;
-	cv::Mat m_rectElement1, m_rectElement2;
-	cv::Mat m_depthMinusBackground;
-	cv::Mat m_drawingMat;
-	cv::Mat m_imgPrev;
+	Mat m_displayImg;
+	Mat m_scaledDepthImg;
+	Mat m_inpaintedImg;
+	Mat m_tempDepthImg, m_tmp;
+	Mat m_rectElement1, m_rectElement2;
+	Mat m_depthMinusBackground;
+	Mat m_drawingMat;
+	Mat m_imgPrev;
 
 	oscpkt::PacketWriter m_packetWriter;
 	oscpkt::Message m_oscMessage;
 
-	std::vector<std::vector<cv::Point>> contours;
-	std::vector<cv::Vec4i> hierarchy;
+	vector<vector<Point>> contours;
+	vector<Vec4i> hierarchy;
 
-	int learnTime;
-	int timePassed;
+	int m_resetTimeInterval;
+	int m_timePassed;
 
 	const int portNumber = 9109;
 	oscpkt::UdpSocket sock;
