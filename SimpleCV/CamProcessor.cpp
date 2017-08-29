@@ -84,21 +84,21 @@ Status CamProcessor::init(int argc, char **argv)
 
 Status CamProcessor::run()
 {
-	sock.connectTo("localhost", portNumber);
-	if (!sock.isOk()) {
-		cerr << "Error connection to port " << portNumber << ": " << sock.errorMessage() << "\n";
+	socket.connectTo("localhost", portNumber);
+	if (!socket.isOk()) {
+		cerr << "Error connection to port " << portNumber << ": " << socket.errorMessage() << "\n";
 	}
 	else {
 		cout << "Client started, will send packets to port " << portNumber << endl;
 
-		while (sock.isOk()) {
+		while (socket.isOk()) {
 			display();
 
 			imshow("KeyPoints", m_displayImg);
 			waitKey(1);
 		}
 
-		cout << "sock error: " << sock.errorMessage() << " -- is the server running?\n";
+		cout << "sock error: " << socket.errorMessage() << " -- is the server running?\n";
 	}
 
 	return STATUS_OK;
@@ -131,7 +131,7 @@ void CamProcessor::display()
 		memcpy(m_cvDepthImage.data, m_depthPixelBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
 
 		/***** IN-PAINTING ******/
-		m_cvDepthImage.convertTo(m_scaledDepthImg, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+		m_cvDepthImage.convertTo(m_scaledDepthImg, CV_8U, 256.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
 
 		resize(m_scaledDepthImg, m_tempDepthImg, Size(), 0.2, 0.2);
 		
@@ -178,6 +178,8 @@ void CamProcessor::display()
 			m_imgPrev = m_inpaintedImg.clone();
 			m_displayImg = m_inpaintedImg.clone();
 
+			
+
 			for (int i = 0; i < m_features_next.size(); i++)
 			{
 				uchar depth;
@@ -197,12 +199,31 @@ void CamProcessor::display()
 					{
 						drawMarker(m_displayImg, m_features_next[i], Scalar(255, 255, 255), MARKER_DIAMOND, 255 / depth, 1, 0);
 						line(m_displayImg, m_features_prev[i], m_features_next[i], Scalar(255, 255, 255));
+
+						m_oscMessage.init("/flow/");
+						
+						m_oscMessage.pushInt32(i);
+						m_oscMessage.pushFloat(m_features_prev[i].x);
+						m_oscMessage.pushFloat(m_features_prev[i].y);
+						m_oscMessage.pushInt32(depth);
+						m_oscMessage.pushFloat(m_features_next[i].x);
+						m_oscMessage.pushFloat(m_features_next[i].y);
+						m_oscMessage.pushInt32(depth);
+
+						m_packetWriter.init();
+						m_packetWriter.startBundle();
+						m_packetWriter.addMessage(m_oscMessage); 
+						m_packetWriter.endBundle();
+
+						socket.sendPacket(m_packetWriter.packetData(), m_packetWriter.packetSize());
 					}
 				}
 			}
 			m_features_prev = m_features_next;
 		}
 		m_timePassed++;
+
+		
 	}
 }
 

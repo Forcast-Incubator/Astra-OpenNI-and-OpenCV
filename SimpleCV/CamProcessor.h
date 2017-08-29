@@ -35,25 +35,20 @@ private:
 	int m_numFeaturesX, m_numFeaturesY;
 	bool m_intialised;
 
-	Mat m_displayImg;
+	Mat m_displayImg, m_imgPrev;
 	Mat m_scaledDepthImg;
 	Mat m_inpaintedImg;
 	Mat m_tempDepthImg, m_tmp;
-	Mat m_rectElement1, m_rectElement2;
 	Mat m_depthMinusBackground;
 	Mat m_drawingMat;
-	Mat m_imgPrev;
-
-	oscpkt::PacketWriter m_packetWriter;
-	oscpkt::Message m_oscMessage;
-
-	vector<vector<Point>> contours;
-	vector<Vec4i> hierarchy;
 
 	int m_resetTimeInterval;
 	int m_timePassed;
 
+	oscpkt::PacketWriter m_packetWriter;
+	oscpkt::Message m_oscMessage;
+
 	const int portNumber = 9109;
-	oscpkt::UdpSocket sock;
+	oscpkt::UdpSocket socket;
 };
 

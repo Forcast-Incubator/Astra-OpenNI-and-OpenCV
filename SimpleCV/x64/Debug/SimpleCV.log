@@ -4,6 +4,6 @@ c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\campro
 c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(73): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
 c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(160): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
 c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(161): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
-c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(194): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\camprocessor.cpp(196): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
   SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Debug\SimpleCV.exe
   SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Debug\SimpleCV.pdb (Partial PDB)
