@@ -46,7 +46,7 @@ Status CamProcessor::init(int argc, char **argv)
 
 		// initialise time variables used for updating background model
 		m_timePassed = 0;
-		m_resetTimeInterval = 10;
+		m_resetTimeInterval = 1;
 	}
 	else {
 		printf("Depth stream not valid\n");
