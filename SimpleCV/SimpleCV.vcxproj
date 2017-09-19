@@ -125,10 +125,12 @@
   <ItemGroup>
     <ClCompile Include="CamProcessor.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Person.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\..\..\opencv\build\include\opencv2\opencv.hpp" />
     <ClInclude Include="CamProcessor.h" />
+    <ClInclude Include="Person.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
