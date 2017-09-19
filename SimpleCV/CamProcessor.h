@@ -2,13 +2,11 @@
 #include <OpenNI.h>
 #include <opencv2/opencv.hpp>
 
-#include "oscpkt/oscpkt.hh"
-#include "oscpkt/udp.hh"
+#include "Person.h"
 
 using namespace cv;
 using namespace openni;
 using namespace std;
-using namespace oscpkt;
 
 class CamProcessor
 {
@@ -16,10 +14,11 @@ public:
 	CamProcessor(Device& device, VideoStream& depth);
 	~CamProcessor();
 
-	virtual Status init(int argc, char **argv);
-	virtual Status run();
-
-	virtual void display();
+	Status Initialise(int argc, char **argv);
+	Status Start();
+	
+	void Display();
+	void Update();
 
 	VideoFrameRef	m_depthFrame;
 	Device&			m_device;
@@ -29,26 +28,63 @@ public:
 private:
 	const DepthPixel* m_depthPixelBuffer;
 
-	Mat m_cvDepthImage;
+	Mat m_rawDepthImage;
+	Mat m_outputImage;
+	Mat m_textOverlay;
 
-	vector<Point2f> m_features_prev, m_features_next;
-	int m_numFeaturesX, m_numFeaturesY;
-	bool m_intialised;
+	Ptr<BackgroundSubtractorMOG2> MOG2BackgroundSubtractor;
 
-	Mat m_displayImg, m_imgPrev;
-	Mat m_scaledDepthImg;
-	Mat m_inpaintedImg;
-	Mat m_tempDepthImg, m_tmp;
-	Mat m_depthMinusBackground;
-	Mat m_drawingMat;
+	Mat m_binaryForegroundMask;
+	
+	Mat m_openedBinaryForegroundMask;
+	Mat m_erosionBrush, m_dilationBrush;
 
-	int m_resetTimeInterval;
-	int m_timePassed;
+	Mat m_contourDrawings;
 
-	oscpkt::PacketWriter m_packetWriter;
-	oscpkt::Message m_oscMessage;
+	double learnRate;
+	char keyPress;
+	int erosionAmount, dilationAmount;
+	bool showGUI;
+	float distanceThreshold;
 
-	const int portNumber = 9109;
-	oscpkt::UdpSocket socket;
+	void CamProcessor::WriteGUIText(const cv::String &text, Point position);
+	void CamProcessor::RedrawGUI();
+
+	vector<vector<Point>> m_currentFrameContours;
+	vector<Vec4i> m_currentFrameContourHierarchy;
+
+	list<Person> m_lastFramePeople;
+	list<Person> m_currentFramePeople;
+
+	bool idList[500];
+	int GetUnusedID();
 };
 
+struct PeopleDistance
+{
+	public:
+		float distance;
+		Person& person1;
+		Person& person2;
+
+	PeopleDistance::PeopleDistance(float _distance, Person& _person1, Person& _person2) : person1(_person1), person2(_person2){
+		distance = _distance;
+	}
+
+	bool PeopleDistance::operator<(PeopleDistance& other)
+	{
+		return (this->distance < other.distance);
+	}
+
+	void PeopleDistance::operator=(PeopleDistance& other)
+	{
+	}
+};
+
+struct is_smaller_functor
+{
+	bool operator()(const PeopleDistance& x, const PeopleDistance& y) const
+	{
+		return x.distance < y.distance;
+	}
+};

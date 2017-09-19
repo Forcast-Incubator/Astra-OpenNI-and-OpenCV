@@ -47,12 +47,12 @@ int main(int argc, char** argv)
 	
 	CamProcessor camProcessor(device, depth);
 
-	rc = camProcessor.init(argc, argv);
+	rc = camProcessor.Initialise(argc, argv);
 	if (rc != openni::STATUS_OK)
 	{
 		openni::OpenNI::shutdown();
 		return 3;
 	}
 
-	camProcessor.run();
+	camProcessor.Start();
 }

@@ -1,21 +1,34 @@
 #include "Person.h"
 
-Person::Person()
+Person::Person(int id, bool alive, Point2f centroid, vector<Point> &contour)
 {
+	m_id = id;
+	m_alive = alive;
+	m_centroidPrev = centroid;
+	m_centroidNext = centroid;
 
+	m_contourNext = contour;
+	m_contourPrev = contour;
+	
+	m_copied = false;
 }
 
 Person::~Person()
 {
-
+	m_contourNext.clear();
+	m_contourPrev.clear();
 }
 
-void Person::ComparePeople(Person &otherPerson) 
+float Person::ComparePeople(Person &otherPerson) 
 {
+	Point2f difference = otherPerson.m_centroidPrev - m_centroidNext;
+	return difference.x * difference.x + difference.y * difference.y;
+	
 }
 
-void Person::CompareContour(vector<Point2f> otherContour, float maxPointVelocity)
+void Person::CompareContour(vector<Point> &otherContour, float maxPointVelocity)
 {
+	/*
 	for (int i = 0; i < otherContour.size(); i++)
 	{
 		for (int j = 0; j < m_contourPrev.size(); j++)
@@ -30,9 +43,22 @@ void Person::CompareContour(vector<Point2f> otherContour, float maxPointVelocity
 			}
 		}
 	}
+	*/
 }
 
 void Person::CalculateContourVelocities() 
 {
 
+}
+
+void Person::CopyData(Person &otherPerson)
+{
+	m_centroidNext = otherPerson.m_centroidNext;
+	m_contourNext = otherPerson.m_contourNext;
+}
+
+void Person::Update()
+{
+	m_contourPrev = m_contourNext;
+	m_centroidPrev = m_centroidNext;
 }

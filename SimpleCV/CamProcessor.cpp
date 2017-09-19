@@ -34,19 +34,15 @@ CamProcessor::~CamProcessor()
 }
 
 
-Status CamProcessor::init(int argc, char **argv)
+Status CamProcessor::Initialise(int argc, char **argv)
 {
-	VideoMode depthVideoMode;
-	m_intialised = false;
 
+	/* OPENNI SET UP */
+	VideoMode depthVideoMode;
 	if (m_depthStream.isValid())
 	{
 		// store video mode
 		depthVideoMode = m_depthStream.getVideoMode();
-
-		// initialise time variables used for updating background model
-		m_timePassed = 0;
-		m_resetTimeInterval = 1;
 	}
 	else {
 		printf("Depth stream not valid\n");
@@ -57,54 +53,56 @@ Status CamProcessor::init(int argc, char **argv)
 	m_streams = new VideoStream*[1];
 	m_streams[0] = &m_depthStream;
 
-	// initialise openNI version of \ depth buffer
+	// initialise openNI version of depth buffer
 	m_depthPixelBuffer = new DepthPixel[ASTRA_FEED_X * ASTRA_FEED_Y];
 
-	// OPTICAL FLOW SET UP
-	m_numFeaturesX = 30;
-	m_numFeaturesY = 20;
+	namedWindow("Depth Image GUI", WINDOW_NORMAL | WINDOW_KEEPRATIO);
+	resizeWindow("Depth Image GUI", WIN_SIZE_X, WIN_SIZE_Y);
 
-	for (int i = 0; i < m_numFeaturesX * m_numFeaturesY; i++)
+	/* OPEN CV SET UP */
+	MOG2BackgroundSubtractor = createBackgroundSubtractorMOG2();
+
+	MOG2BackgroundSubtractor->setNMixtures(5);			//number of gaussian components in the background model
+	MOG2BackgroundSubtractor->setHistory(200);			//number of last frames that affect the background model
+	MOG2BackgroundSubtractor->setVarThreshold(1000);	//variance threshold for the pixel-model match
+	MOG2BackgroundSubtractor->setDetectShadows(false);	//don't mark shadows since the feature is only useful for color data
+	
+	learnRate = 0.99;
+	erosionAmount = 5;
+	dilationAmount = 5;
+	showGUI = true;
+
+	distanceThreshold = 10.0f;
+	
+	RedrawGUI();
+	
+	for (int i = 0; i < 500; i++)
 	{
-		int x = i % m_numFeaturesX;
-		int y = i / m_numFeaturesX;
-		
-		float xPos = (ASTRA_FEED_X / m_numFeaturesX) * x + (ASTRA_FEED_X / (m_numFeaturesX * 2));
-		float yPos = (ASTRA_FEED_Y / m_numFeaturesY) * y + (ASTRA_FEED_Y / (m_numFeaturesY * 2));
-
-		m_features_prev.push_back(Point2f(xPos, yPos));
-
+		idList[i] = false;
 	}
-
-	namedWindow("KeyPoints", WINDOW_NORMAL | WINDOW_KEEPRATIO);
-	resizeWindow("KeyPoints", WIN_SIZE_X, WIN_SIZE_Y);
 
 	return STATUS_OK;
 }
 
-Status CamProcessor::run()
+Status CamProcessor::Start()
 {
-	socket.connectTo("localhost", portNumber);
-	if (!socket.isOk()) {
-		cerr << "Error connection to port " << portNumber << ": " << socket.errorMessage() << "\n";
-	}
-	else {
-		cout << "Client started, will send packets to port " << portNumber << endl;
-
-		while (socket.isOk()) {
-			display();
-
-			imshow("KeyPoints", m_displayImg);
-			waitKey(1);
-		}
-
-		cout << "sock error: " << socket.errorMessage() << " -- is the server running?\n";
+	
+	while (true)
+	{
+		Update();
+		Display();
 	}
 
 	return STATUS_OK;
 }
 
-void CamProcessor::display()
+void CamProcessor::Display()
+{	
+	imshow("Depth Image GUI", m_outputImage);
+	keyPress = waitKey(1);
+}
+
+void CamProcessor::Update()
 {
 	int changedIndex;
 	Status rc = OpenNI::waitForAnyStream(m_streams, 1, &changedIndex);
@@ -127,104 +125,199 @@ void CamProcessor::display()
 	{
 		m_depthPixelBuffer = (const DepthPixel*)m_depthFrame.getData();
 
-		m_cvDepthImage.create(m_depthFrame.getHeight(), m_depthFrame.getWidth(), CV_16UC1);
-		memcpy(m_cvDepthImage.data, m_depthPixelBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
+		m_rawDepthImage.create(m_depthFrame.getHeight(), m_depthFrame.getWidth(), CV_16UC1);
+		memcpy(m_rawDepthImage.data, m_depthPixelBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
 
-		/***** IN-PAINTING ******/
-		m_cvDepthImage.convertTo(m_scaledDepthImg, CV_8U, 256.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
-
-		resize(m_scaledDepthImg, m_tempDepthImg, Size(), 0.2, 0.2);
+		///// KEYBOARD HANDLING /////
 		
-		//inpaint only the "unknown" pixels
-		inpaint(m_tempDepthImg, (m_tempDepthImg == 0), m_tempDepthImg, 1.0, INPAINT_TELEA);
+		learnRate = 0.0;
 
-		resize(m_tempDepthImg, m_tempDepthImg, m_scaledDepthImg.size());
-		m_inpaintedImg = m_scaledDepthImg;
-		m_tempDepthImg.copyTo(m_inpaintedImg, (m_scaledDepthImg == 0));  //add the original signal back over the inpaint
-
-		blur(m_inpaintedImg, m_inpaintedImg, Size(10, 10));
-
-		// OPTICAL FLOW
-		vector<uchar> status;
-		vector<float> err;
-
-		if (m_timePassed > m_resetTimeInterval) {
-
-			m_features_prev.clear();
-
-			for (int i = 0; i < m_numFeaturesX * m_numFeaturesY; i++)
-			{
-				int x = i % m_numFeaturesX;
-				int y = i / m_numFeaturesX;
-
-				float xPos = (ASTRA_FEED_X / m_numFeaturesX) * x + (ASTRA_FEED_X / (m_numFeaturesX * 2));
-				float yPos = (ASTRA_FEED_Y / m_numFeaturesY) * y + (ASTRA_FEED_Y / (m_numFeaturesY * 2));
-
-				m_features_prev.push_back(Point2f(xPos, yPos));
-			}
-
-			m_timePassed = 0;
+		switch (keyPress)
+		{
+		case 'h':
+			showGUI = !showGUI;
+			RedrawGUI();
+			break;
+		case 'r':
+			learnRate = 0.99;
+			break;
+		case '+':
+		case '=':
+			erosionAmount++;
+			RedrawGUI();
+			break;
+		case '_':
+		case '-':
+			if (erosionAmount <= 0)
+				erosionAmount = 0;
+			else
+				erosionAmount--;
+			RedrawGUI();
+			break;
+		case 'p':
+			dilationAmount++;
+			RedrawGUI();
+			break;
+		case 'o':
+			dilationAmount -= (dilationAmount <= 0) ? 0 : 1;
+			RedrawGUI();
+			break;
+		default:
+			break;
 		}
-		else {
+		
+		/* OPEN CV OPERATIONS */
 
-			if (m_intialised == false)
-			{
-				m_intialised = true;
-				m_imgPrev = m_inpaintedImg.clone();
-			}
+		///// BACKGROUND SUBTRACTION /////
+		MOG2BackgroundSubtractor->apply(m_rawDepthImage, m_binaryForegroundMask, learnRate);
 
-			calcOpticalFlowPyrLK(m_imgPrev, m_inpaintedImg, m_features_prev, m_features_next, status, err, Size(5, 5));
+		///// OPEN OPERATION /////
+		erode(m_binaryForegroundMask, m_openedBinaryForegroundMask, m_erosionBrush);
+		dilate(m_openedBinaryForegroundMask, m_openedBinaryForegroundMask, m_dilationBrush);
 
-			m_imgPrev = m_inpaintedImg.clone();
-			m_displayImg = m_inpaintedImg.clone();
+		///// CONTOUR DETECTION /////
+		findContours(m_openedBinaryForegroundMask, m_currentFrameContours, m_currentFrameContourHierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
+		m_contourDrawings = Mat::zeros(m_rawDepthImage.size(), CV_8UC1);
+
+		m_currentFramePeople.clear();
+		
+		vector<PeopleDistance> distances;
+		
+		// Iterate through all contours found in the current frame
+		for (int contour = 0; contour<m_currentFrameContours.size(); contour++)
+		{
+			Scalar color = cv::Scalar(255, 255, 255);
+			//drawContours(m_contourDrawings, m_currentFrameContours, contour, color, 2, 8, m_currentFrameContourHierarchy, 0, cv::Point());
+
+			// Simplify the contour into a polygon with less vertices
+			approxPolyDP(Mat(m_currentFrameContours[contour]), m_currentFrameContours[contour], 3, true);
+
+			drawContours(m_contourDrawings, m_currentFrameContours, contour, color, 2, 8, m_currentFrameContourHierarchy, 0, cv::Point());
 			
+			// Find the details of the contour data
+			Moments contourMoments = moments(m_currentFrameContours[contour], false);
+			Point2d massCenter = Point2d(contourMoments.m10 / contourMoments.m00, contourMoments.m01 / contourMoments.m00);
 
-			for (int i = 0; i < m_features_next.size(); i++)
+			// Push this contour into a storage container for some reason
+			m_currentFramePeople.push_back(Person(0, true, massCenter, m_currentFrameContours[contour]));
+
+			// FIND DISTANCE BETWEEN THIS CONTOUR AND ALL CONTOURS FROM THE PREVIOUS FRAME
+			float minDist = numeric_limits<float>::max();
+			
+			Person thisPerson = m_currentFramePeople.back();
+
+			// Iterate through all people from previous frame
+			for (list<Person>::iterator iterator = m_lastFramePeople.begin(), end = m_lastFramePeople.end(); iterator != end; ++iterator)
 			{
-				uchar depth;
-				if (m_features_next[i].x >= ASTRA_FEED_X || m_features_next[i].x <= 0 || m_features_next[i].y >= ASTRA_FEED_Y || m_features_next[i].y <= 0)
+				// Figure out square distance between this contour and all others
+				float dist = iterator->ComparePeople(thisPerson);
+				if (dist < minDist && dist < distanceThreshold)
 				{
-					depth = 0;
-				}
-				else {
-					depth = m_inpaintedImg.at<uchar>(Point((int)m_features_next[i].x, (int)m_features_next[i].y));
-				}
-
-				if (depth > 0 && depth < 50) {
-					Point differenceVector = m_features_prev[i] - m_features_next[i];
-					float squareMagnitude = differenceVector.x*differenceVector.x + differenceVector.y*differenceVector.y;
-
-					if (squareMagnitude < (50 * 50) && squareMagnitude >(5 * 5))
-					{
-						drawMarker(m_displayImg, m_features_next[i], Scalar(255, 255, 255), MARKER_DIAMOND, 255 / depth, 1, 0);
-						line(m_displayImg, m_features_prev[i], m_features_next[i], Scalar(255, 255, 255));
-
-						m_oscMessage.init("/flow/");
-						
-						m_oscMessage.pushInt32(i);
-						m_oscMessage.pushFloat(m_features_prev[i].x);
-						m_oscMessage.pushFloat(m_features_prev[i].y);
-						m_oscMessage.pushInt32(depth);
-						m_oscMessage.pushFloat(m_features_next[i].x);
-						m_oscMessage.pushFloat(m_features_next[i].y);
-						m_oscMessage.pushInt32(depth);
-
-						m_packetWriter.init();
-						m_packetWriter.startBundle();
-						m_packetWriter.addMessage(m_oscMessage); 
-						m_packetWriter.endBundle();
-
-						socket.sendPacket(m_packetWriter.packetData(), m_packetWriter.packetSize());
-					}
+					if (iterator->m_alive == false)
+						iterator->m_alive = true;
+					
+					minDist = dist;
+					// if it's within the threshold, store in an array of people
+					distances.push_back(PeopleDistance(dist, thisPerson, *iterator));
 				}
 			}
-			m_features_prev = m_features_next;
 		}
-		m_timePassed++;
 
-		
+		// sort all the distances that were within the threshold to find the smallest distances
+		sort(distances.begin(), distances.end(), is_smaller_functor());
+
+		// Copy the data from each person over, in the order of how close they were between frames
+		for (int i = 0; i < distances.size(); i++)
+		{
+			if (distances[i].person1.m_copied == false && distances[i].person2.m_copied == false) {
+				distances[i].person1.CopyData(distances[i].person2);
+				distances[i].person1.m_copied = true;
+				distances[i].person2.m_copied = true;
+			}
+		}
+
+		// Add any new people to the people list, give them a unique ID
+		for (list<Person>::iterator iterator = m_currentFramePeople.begin(), end = m_currentFramePeople.end(); iterator != end; ++iterator)
+		{
+			if (iterator->m_copied == false) {
+				iterator->m_id = GetUnusedID();
+				m_lastFramePeople.push_back(*iterator);
+			}
+		}
+
+		// Update the whole list of people
+
+		for (list<Person>::iterator iterator = m_lastFramePeople.begin(), end = m_lastFramePeople.end(); iterator != end; ++iterator)
+		{
+			if (iterator->m_copied == false)
+			{
+				/// NO MATCH WAS FOUND BETWEEN THIS PERSON AND THE NEW FRAME!
+				// Start countdown to their destruction
+				idList[iterator->m_id] = false;
+				iterator->m_alive = false;
+				//m_lastFramePeople.erase(iterator++);
+				//iterator--;
+			}
+			else {
+				if (iterator->m_alive) {
+					cv::drawMarker(m_contourDrawings, iterator->m_centroidNext, cv::Scalar(255, 255, 255), 0, 15, 1, 8);
+					putText(m_textOverlay, to_string(iterator->m_id), iterator->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0, LINE_8);
+				}
+				iterator->Update();
+			}
+		}
+
+		/*
+		RedrawGUI();
+
+		WriteGUIText("Number of Contours: " + to_string(m_lastFramePeople.size()), Point(5, 465));
+		*/
+		///// CREATE FINAL IMAGE /////
+		m_outputImage = m_textOverlay + m_contourDrawings;
+
 	}
 }
 
+void CamProcessor::WriteGUIText(const cv::String &text, Point position)
+{
+	putText(m_textOverlay, text, position, FONT_HERSHEY_SIMPLEX, 0.4, Scalar(255, 255, 255), 0, LINE_8);
+}
 
+
+void CamProcessor::RedrawGUI()
+{
+	m_textOverlay = Mat::zeros(Size(WIN_SIZE_X, WIN_SIZE_Y), CV_8UC1);
+
+	if (showGUI) {
+		WriteGUIText("h: hide text controls (h again to show)", Point(5, 15));
+		WriteGUIText("r: recalculate background subtraction model", Point(5, 30));
+		WriteGUIText("Erosion brush size: " + to_string(erosionAmount), Point(5, 45));
+		WriteGUIText("+: increase erosion brush size", Point(5, 60));
+		WriteGUIText("-: decrease erosion brush size", Point(5, 75));
+		WriteGUIText("Dilation brush size: " + to_string(dilationAmount), Point(5, 90));
+		WriteGUIText("p: increase dilation brush size", Point(5, 105));
+		WriteGUIText("o: decrease dilation brush size", Point(5, 120));
+	}
+
+	m_erosionBrush = getStructuringElement(MORPH_RECT, Size(2 * erosionAmount + 1, 2 * erosionAmount + 1), Point(erosionAmount, erosionAmount));
+	m_dilationBrush = getStructuringElement(MORPH_RECT, Size(2 * dilationAmount + 1, 2 * dilationAmount + 1), Point(dilationAmount, dilationAmount));
+}
+
+
+int CamProcessor::GetUnusedID()
+{
+	int i = 0;
+
+	while (idList[i] != false && i<500)
+		i++;
+
+	if (i < 500) {
+		
+		idList[i] = true;
+		return i;
+	}
+	else {
+		return -1;
+	}
+}

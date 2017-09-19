@@ -8,24 +8,31 @@ using namespace std;
 class Person
 {
 public:
-	Person();
+	Person(int id, bool alive, Point2f centroid, vector<Point> &contour);
 	~Person();
 
-	void ComparePeople(Person &otherPerson);
-	void CompareContour(vector<Point2f> otherContour, float maxPointVelocity);
+	float ComparePeople(Person &otherPerson);
+	void CompareContour(vector<Point> &otherContour, float maxPointVelocity);
+
+	void CopyData(Person &otherPerson);
 
 	void CalculateContourVelocities();
-
-private:
 	int m_id;
-
 	bool m_alive;
-	float m_destructionCountdown;
+	bool m_copied;
 
 	Point2f m_centroidPrev;
 	Point2f m_centroidNext;
-	float m_contourMass;
-	vector<Point2f> m_contourPrev;
-	vector<Point2f> m_contourNext;
+
+	vector<Point> m_contourPrev;
+	vector<Point> m_contourNext;
+	
+
+	void Update();
+
+private:
+	float m_destructionCountdown;
+
+	
 };
 
