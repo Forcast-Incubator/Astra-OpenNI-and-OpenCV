@@ -11,6 +11,8 @@ Person::Person(int id, bool alive, Point2f centroid, vector<Point> &contour)
 	m_contourPrev = contour;
 	
 	m_copied = false;
+	m_deleted = false;
+	m_destructionCountdown = 10;
 }
 
 Person::~Person()
@@ -19,7 +21,7 @@ Person::~Person()
 	m_contourPrev.clear();
 }
 
-float Person::ComparePeople(Person &otherPerson) 
+float Person::GetSquareDistance(Person &otherPerson) 
 {
 	Point2f difference = otherPerson.m_centroidPrev - m_centroidNext;
 	return difference.x * difference.x + difference.y * difference.y;
@@ -61,4 +63,16 @@ void Person::Update()
 {
 	m_contourPrev = m_contourNext;
 	m_centroidPrev = m_centroidNext;
+
+	if (m_alive)
+	{
+		m_destructionCountdown = 10;
+	}
+	else {
+		m_destructionCountdown--;
+		if (m_destructionCountdown <= 0)
+		{
+			m_deleted = true;
+		}
+	}
 }

@@ -11,7 +11,7 @@ public:
 	Person(int id, bool alive, Point2f centroid, vector<Point> &contour);
 	~Person();
 
-	float ComparePeople(Person &otherPerson);
+	float GetSquareDistance(Person &otherPerson);
 	void CompareContour(vector<Point> &otherContour, float maxPointVelocity);
 
 	void CopyData(Person &otherPerson);
@@ -20,18 +20,19 @@ public:
 	int m_id;
 	bool m_alive;
 	bool m_copied;
+	bool m_deleted;
 
 	Point2f m_centroidPrev;
 	Point2f m_centroidNext;
 
 	vector<Point> m_contourPrev;
 	vector<Point> m_contourNext;
-	
+	float m_destructionCountdown;
 
 	void Update();
 
 private:
-	float m_destructionCountdown;
+	
 
 	
 };

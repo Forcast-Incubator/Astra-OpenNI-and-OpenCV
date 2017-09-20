@@ -85,6 +85,7 @@ struct is_smaller_functor
 {
 	bool operator()(const PeopleDistance& x, const PeopleDistance& y) const
 	{
+		//cout << " x: " << x.distance << " y: " << y.distance << " bool: " << to_string(x.distance < y.distance) << endl;
 		return x.distance < y.distance;
 	}
 };
