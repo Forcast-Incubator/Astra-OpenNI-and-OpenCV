@@ -9,11 +9,10 @@ using namespace std;
 class Person
 {
 public:
-	Person(int id, bool alive, Point2f centroid, vector<Point> &contour);
+	Person(int id, bool alive, Point centroid, vector<Point> &contour);
 	~Person();
 
 	float GetSquareDistance(Person &otherPerson);
-	void CompareContour(vector<Point> &otherContour, float maxPointVelocity);
 
 	void CopyData(Person &otherPerson);
 
@@ -23,8 +22,8 @@ public:
 	bool m_copied;
 	bool m_deleted;
 
-	Point2f m_centroidPrev;
-	Point2f m_centroidNext;
+	Point m_centroidPrev;
+	Point m_centroidNext;
 
 	vector<Point> m_contourPrev;
 	vector<Point> m_contourNext;
@@ -32,9 +31,24 @@ public:
 
 	void Update();
 
-private:
-	
-
-	
+	vector<Point> m_velocityList;
 };
 
+struct PointPair
+{
+public:
+	float squareDistance;
+	int nextPointIndex;
+	int prevPointIndex;
+	PointPair(float _squareDistance, int _nextPointIndex, int _prevPointIndex)
+		: squareDistance(_squareDistance), nextPointIndex(_nextPointIndex), prevPointIndex(_prevPointIndex) {
+	}
+};
+
+struct smaller_of_pair_functor
+{
+	bool operator()(const PointPair& x, const PointPair& y) const
+	{
+		return (x.squareDistance < y.squareDistance);
+	}
+};

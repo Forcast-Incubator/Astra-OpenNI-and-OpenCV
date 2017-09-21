@@ -72,7 +72,7 @@ Status CamProcessor::Initialise(int argc, char **argv)
 	dilationAmount = 5;
 	showGUI = true;
 
-	distanceThreshold = 10.0f;
+	distanceThreshold = 30.0f * 30.0f;
 	
 	RedrawGUI();
 	
@@ -193,8 +193,6 @@ void CamProcessor::Update()
 			// Simplify the contour into a polygon with less vertices
 			approxPolyDP(Mat(m_currentFrameContours[contour]), m_currentFrameContours[contour], 3, true);
 
-			drawContours(m_contourDrawings, m_currentFrameContours, contour, color, 2, 8, m_currentFrameContourHierarchy, 0, cv::Point());
-			
 			// Find the details of the contour data
 			Moments contourMoments = moments(m_currentFrameContours[contour], false);
 			Point2d massCenter = Point2d(contourMoments.m10 / contourMoments.m00, contourMoments.m01 / contourMoments.m00);
@@ -259,48 +257,46 @@ void CamProcessor::Update()
 		list<Person>::iterator person = m_lastFramePeople.begin();
 		while (person != m_lastFramePeople.end())
 		{
+			if (person->m_copied != true)
+			{
+				// NO MATCH WAS FOUND WITH THE PREVIOUS FRAME!
+				person->m_alive = false;
+			}
+			else {
+				//person->m_alive = false;
+			}
+			std::vector<std::vector<cv::Point> > contourVec;
+			contourVec.push_back(person->m_contourPrev);
+			contourVec.push_back(person->m_contourNext);
+
+			cv::drawContours(m_contourDrawings, contourVec, 0, Scalar(10 * person->m_destructionCountdown), 2, LINE_AA);
+			cv::drawContours(m_contourDrawings, contourVec, 1, Scalar(25 * person->m_destructionCountdown), 1, LINE_AA);
+			
+			drawMarker(m_contourDrawings, person->m_centroidNext, Scalar(255), MARKER_DIAMOND, 15, 1, LINE_AA);
+			line(m_contourDrawings, person->m_centroidPrev, person->m_centroidNext, Scalar(255), 1, LINE_AA);
+			putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0, LINE_8);
+
+			person->CalculateContourVelocities();
+
+			for (int i = 0; i < person->m_velocityList.size(); i++)
+			{
+				if (person->m_velocityList[i] != person->m_contourNext[i])
+				{
+					line(m_contourDrawings, person->m_velocityList[i], person->m_contourNext[i], Scalar(255), 1, LINE_AA);
+					//drawMarker(m_contourDrawings, person->m_contourNext[i], Scalar(200), MARKER_TRIANGLE_UP, 5, 1, LINE_AA);
+				}
+			}
+
 			person->Update();
+
 			if (person->m_deleted != false)
 			{
-				putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point2f(0, 40), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(255, 255, 255), 0, LINE_8);
-				drawMarker(m_contourDrawings, person->m_centroidPrev, Scalar(255,255,255), MARKER_TRIANGLE_DOWN, 30, 2, 8);
+				drawMarker(m_contourDrawings, person->m_centroidNext, Scalar(200), MARKER_TILTED_CROSS, 15, 1, LINE_AA);
 
 				idList[person->m_id] = false;
 				m_lastFramePeople.erase(person++);
 			}
-			else
-			{
-				if (person->m_copied != true)
-				{
-					person->m_alive = false;
-					
-					int color = 20 * person->m_destructionCountdown;
-					Scalar alphaColor = Scalar(color, color, color);
-
-					line(m_contourDrawings, person->m_centroidNext, person->m_centroidPrev, Scalar(255, 255, 255), 1, LineTypes::LINE_AA);
-					drawMarker(m_contourDrawings, person->m_centroidPrev, alphaColor, MARKER_DIAMOND, 15, 1, 8);
-
-					drawMarker(m_contourDrawings, person->m_centroidNext, alphaColor, 0, 5, 1, 8);
-					putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, alphaColor, 0, LINE_8);
-				}
-				else {
-					//line(m_contourDrawings, person->m_centroidNext, person->m_centroidPrev, Scalar(100, 100, 100),1,LineTypes::LINE_AA);
-					//drawMarker(m_contourDrawings, iterator->m_centroidPrev, Scalar(100, 100, 100), 0, 10, 2, 8);
-					int color = 20 * person->m_destructionCountdown;
-					drawMarker(m_contourDrawings, person->m_centroidNext, Scalar(color, color, color), 0, 50, 1, 8);
-					person->m_alive = false;
-					//putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0, LINE_8);
-				}
-
-				std::vector<std::vector<cv::Point> > contourVec;
-				contourVec.push_back(person->m_contourPrev);
-				contourVec.push_back(person->m_contourNext);
-
-				int color = 20 * person->m_destructionCountdown;
-
-				cv::drawContours(m_contourDrawings, contourVec, 0, Scalar(100, 100, 100), 3, LineTypes::LINE_AA);
-				cv::drawContours(m_contourDrawings, contourVec, 1, Scalar(255, 255, 255), 1, LineTypes::LINE_AA);
-
+			else {
 				person++;
 			}
 		}
