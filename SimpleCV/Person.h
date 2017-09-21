@@ -1,6 +1,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
+#include <math.h> 
 
 using namespace cv;
 using namespace std;

@@ -4,6 +4,7 @@ Person::Person(int id, bool alive, Point2f centroid, vector<Point> &contour)
 {
 	m_id = id;
 	m_alive = alive;
+
 	m_centroidPrev = centroid;
 	m_centroidNext = centroid;
 
@@ -24,8 +25,7 @@ Person::~Person()
 float Person::GetSquareDistance(Person &otherPerson) 
 {
 	Point2f difference = otherPerson.m_centroidPrev - m_centroidNext;
-	return difference.x * difference.x + difference.y * difference.y;
-	
+	return sqrt(difference.x * difference.x + difference.y * difference.y);
 }
 
 void Person::CompareContour(vector<Point> &otherContour, float maxPointVelocity)
@@ -63,6 +63,8 @@ void Person::Update()
 {
 	m_contourPrev = m_contourNext;
 	m_centroidPrev = m_centroidNext;
+
+	m_copied = false;
 
 	if (m_alive)
 	{

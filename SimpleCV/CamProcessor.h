@@ -64,28 +64,32 @@ struct PeopleDistance
 {
 	public:
 		float distance;
-		Person& person1;
-		Person& person2;
+		Person* person1;
+		Person* person2;
 
-	PeopleDistance::PeopleDistance(float _distance, Person& _person1, Person& _person2) : person1(_person1), person2(_person2){
-		distance = _distance;
+	PeopleDistance::PeopleDistance(float _distance, Person* _person1, Person* _person2) : distance(_distance), person1(_person1), person2(_person2){
 	}
-
+	/*
 	bool PeopleDistance::operator<(PeopleDistance& other)
 	{
-		return (this->distance < other.distance);
+		return (distance < other.distance);
 	}
 
 	void PeopleDistance::operator=(PeopleDistance& other)
 	{
+		/*
+		distance = other.distance;
+		person1 = other.person1;
+		person2 = other.person2;
+		
 	}
+*/
 };
 
 struct is_smaller_functor
 {
 	bool operator()(const PeopleDistance& x, const PeopleDistance& y) const
 	{
-		//cout << " x: " << x.distance << " y: " << y.distance << " bool: " << to_string(x.distance < y.distance) << endl;
-		return x.distance < y.distance;
+		return (x.distance < y.distance);
 	}
 };

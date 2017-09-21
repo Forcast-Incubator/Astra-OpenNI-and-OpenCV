@@ -72,7 +72,7 @@ Status CamProcessor::Initialise(int argc, char **argv)
 	dilationAmount = 5;
 	showGUI = true;
 
-	distanceThreshold = 50.0f;
+	distanceThreshold = 10.0f;
 	
 	RedrawGUI();
 	
@@ -182,7 +182,7 @@ void CamProcessor::Update()
 
 		m_currentFramePeople.clear();
 		
-		vector<PeopleDistance> distances;
+		list<PeopleDistance> distances;
 		
 		// Iterate through all contours found in the current frame
 		for (int contour = 0; contour<m_currentFrameContours.size(); contour++)
@@ -205,77 +205,103 @@ void CamProcessor::Update()
 			// FIND DISTANCE BETWEEN THIS CONTOUR AND ALL CONTOURS FROM THE PREVIOUS FRAME
 			float minDist = numeric_limits<float>::max();
 			
-			Person thisPerson = m_currentFramePeople.back();
-
-			cout << "CENTROID" << thisPerson.m_centroidNext << endl;
+			Person* thisPerson = &m_currentFramePeople.back();
 
 			// Iterate through all people from previous frame
-			for (list<Person>::iterator iterator = m_lastFramePeople.begin(), end = m_lastFramePeople.end(); iterator != end; ++iterator)
+			for (list<Person>::iterator iterator = m_lastFramePeople.begin(), end = m_lastFramePeople.end(); iterator != end; iterator++)
 			{
 				// Figure out square distance between this contour and all others
-				float dist = iterator->GetSquareDistance(thisPerson);
+				float dist = iterator->GetSquareDistance(*thisPerson);
 				if (dist < minDist && dist < distanceThreshold)
 				{
 					minDist = dist;
 					// if it's within the threshold, store in an array of people
-					distances.push_back(PeopleDistance(dist, thisPerson, *iterator));
+					distances.push_back(PeopleDistance(dist, thisPerson, &*iterator));
 				}
 			}
 		}
 
 		// sort all the distances that were within the threshold to find the smallest distances
-		sort(distances.begin(), distances.end(), is_smaller_functor());
+		distances.sort(is_smaller_functor());
 
 		// Copy the data from each person over, in the order of how close they were between frames
-		for (int i = 0; i < static_cast<int>(distances.size()); i++)
+		for (list<PeopleDistance>::iterator i = distances.begin(); i != distances.end(); ++i)
 		{
-			if (distances[i].person1.m_copied == false && distances[i].person2.m_copied == false) {
-				distances[i].person1.CopyData(distances[i].person2);
-				distances[i].person1.m_copied = true;
-				//distances[i].person1.m_alive = true;
-				distances[i].person2.m_copied = true;
-				//distances[i].person2.m_alive = true;
+			if (i->person1->m_copied != true && i->person2->m_copied != true) {
+				i->person2->CopyData(*i->person1);
+				i->person1->m_copied = true;
+				i->person1->m_alive = true;
+				i->person2->m_copied = true;
+				i->person2->m_alive = true;
+			} else {
+				//i->person1.m_copied = false;
+				//i->person1.m_alive = false;
+				//i->person2.m_copied = false;
+				//i->person2.m_alive = false;
 			}
 		}
 
+		distances.clear();
+
 		// Add any new people to the people list, give them a unique ID
-		for (list<Person>::iterator iterator = m_currentFramePeople.begin(), end = m_currentFramePeople.end(); iterator != end; ++iterator)
+		for (list<Person>::iterator iterator = m_currentFramePeople.begin(), end = m_currentFramePeople.end(); iterator != end; iterator++)
 		{
-			if (iterator->m_copied == false) {
+			if (iterator->m_copied != true) {
 				iterator->m_id = GetUnusedID();
 				m_lastFramePeople.push_back(*iterator);
 			}
+
+			//drawMarker(m_contourDrawings, iterator->m_centroidNext, Scalar(150, 150, 150), 0, 20, 2, 8);
+			//putText(m_contourDrawings, to_string(iterator->m_id), iterator->m_centroidNext - Point2f(0, 30), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(160, 160, 160), 0, LINE_8);
 		}
 
 		// Update the whole list of people
-		list<Person>::iterator iterator = m_lastFramePeople.begin();
-		while (iterator != m_lastFramePeople.end())
+		list<Person>::iterator person = m_lastFramePeople.begin();
+		while (person != m_lastFramePeople.end())
 		{
-			if (iterator->m_copied == false)
+			person->Update();
+			if (person->m_deleted != false)
 			{
-				/// NO MATCH WAS FOUND BETWEEN THIS PERSON AND THE NEW FRAME!
-				// Start countdown to their destruction
-				iterator->m_alive = false;
-				//m_lastFramePeople.erase(iterator++);
-				//iterator--;
-				//drawMarker(m_contourDrawings, iterator->m_centroidPrev, Scalar(100, 100, 100), 0, 10, 2, 8);
-				//drawMarker(m_contourDrawings, iterator->m_centroidNext, Scalar(150, 150, 150), 0, 5, 1, 8);
-				//putText(m_contourDrawings, to_string(iterator->m_destructionCountdown), iterator->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(150, 150, 150), 0, LINE_8);
-			} else {
-				line(m_contourDrawings, iterator->m_centroidNext, iterator->m_centroidPrev, Scalar(255, 255, 255),1,LineTypes::LINE_AA);
-				drawMarker(m_contourDrawings, iterator->m_centroidPrev, Scalar(100, 100, 100), 0, 10, 2, 8);
-				drawMarker(m_contourDrawings, iterator->m_centroidNext, Scalar(255, 255, 255), 0, 5, 1, 8);
-				putText(m_contourDrawings, to_string(iterator->m_id), iterator->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0, LINE_8);
-			}
+				putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point2f(0, 40), FONT_HERSHEY_SIMPLEX, 0.4, Scalar(255, 255, 255), 0, LINE_8);
+				drawMarker(m_contourDrawings, person->m_centroidPrev, Scalar(255,255,255), MARKER_TRIANGLE_DOWN, 30, 2, 8);
 
-			iterator->Update();
-			if (iterator->m_deleted)
+				idList[person->m_id] = false;
+				m_lastFramePeople.erase(person++);
+			}
+			else
 			{
-				//cout << "DELETED: " << to_string(iterator->m_id) << endl;
-				idList[iterator->m_id] = false;
-				m_lastFramePeople.erase(iterator++);
-			} else {
-				++iterator;
+				if (person->m_copied != true)
+				{
+					person->m_alive = false;
+					
+					int color = 20 * person->m_destructionCountdown;
+					Scalar alphaColor = Scalar(color, color, color);
+
+					line(m_contourDrawings, person->m_centroidNext, person->m_centroidPrev, Scalar(255, 255, 255), 1, LineTypes::LINE_AA);
+					drawMarker(m_contourDrawings, person->m_centroidPrev, alphaColor, MARKER_DIAMOND, 15, 1, 8);
+
+					drawMarker(m_contourDrawings, person->m_centroidNext, alphaColor, 0, 5, 1, 8);
+					putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, alphaColor, 0, LINE_8);
+				}
+				else {
+					//line(m_contourDrawings, person->m_centroidNext, person->m_centroidPrev, Scalar(100, 100, 100),1,LineTypes::LINE_AA);
+					//drawMarker(m_contourDrawings, iterator->m_centroidPrev, Scalar(100, 100, 100), 0, 10, 2, 8);
+					int color = 20 * person->m_destructionCountdown;
+					drawMarker(m_contourDrawings, person->m_centroidNext, Scalar(color, color, color), 0, 50, 1, 8);
+					person->m_alive = false;
+					//putText(m_contourDrawings, to_string(person->m_id), person->m_centroidNext - Point2f(0, 15), FONT_HERSHEY_SIMPLEX, 0.3, Scalar(255, 255, 255), 0, LINE_8);
+				}
+
+				std::vector<std::vector<cv::Point> > contourVec;
+				contourVec.push_back(person->m_contourPrev);
+				contourVec.push_back(person->m_contourNext);
+
+				int color = 20 * person->m_destructionCountdown;
+
+				cv::drawContours(m_contourDrawings, contourVec, 0, Scalar(100, 100, 100), 3, LineTypes::LINE_AA);
+				cv::drawContours(m_contourDrawings, contourVec, 1, Scalar(255, 255, 255), 1, LineTypes::LINE_AA);
+
+				person++;
 			}
 		}
 
@@ -286,8 +312,6 @@ void CamProcessor::Update()
 
 		///// CREATE FINAL IMAGE /////
 		m_outputImage = m_textOverlay + m_contourDrawings;
-
-		cout << "-----------------------------" << endl;
 	}
 }
 
@@ -310,7 +334,6 @@ void CamProcessor::RedrawGUI()
 		WriteGUIText("Dilation brush size: " + to_string(dilationAmount), Point(5, 90));
 		WriteGUIText("p: increase dilation brush size", Point(5, 105));
 		WriteGUIText("o: decrease dilation brush size", Point(5, 120));
-
 	}
 
 	m_erosionBrush = getStructuringElement(MORPH_RECT, Size(2 * erosionAmount + 1, 2 * erosionAmount + 1), Point(erosionAmount, erosionAmount));
