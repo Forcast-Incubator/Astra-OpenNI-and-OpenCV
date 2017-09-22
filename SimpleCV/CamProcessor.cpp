@@ -33,7 +33,6 @@ CamProcessor::~CamProcessor()
 	}
 }
 
-
 Status CamProcessor::Initialise(int argc, char **argv)
 {
 
@@ -76,17 +75,21 @@ Status CamProcessor::Initialise(int argc, char **argv)
 	
 	RedrawGUI();
 	
-	for (int i = 0; i < 500; i++)
+	for (int i = 0; i < MAX_PEOPLE; i++)
 	{
 		idList[i] = false;
 	}
+
+	if (m_oscHandler.StartConnection())
+		cout << "Connection established" << endl;
+	else
+		cout << "Connection failed" << endl;
 
 	return STATUS_OK;
 }
 
 Status CamProcessor::Start()
 {
-	
 	while (true)
 	{
 		Update();
@@ -129,7 +132,6 @@ void CamProcessor::Update()
 		memcpy(m_rawDepthImage.data, m_depthPixelBuffer, m_depthFrame.getHeight()*m_depthFrame.getWidth() * sizeof(uint16_t));
 
 		///// KEYBOARD HANDLING /////
-		
 		learnRate = 0.0;
 
 		switch (keyPress)
@@ -188,7 +190,6 @@ void CamProcessor::Update()
 		for (int contour = 0; contour<m_currentFrameContours.size(); contour++)
 		{
 			Scalar color = cv::Scalar(255, 255, 255);
-			//drawContours(m_contourDrawings, m_currentFrameContours, contour, color, 2, 8, m_currentFrameContourHierarchy, 0, cv::Point());
 
 			// Simplify the contour into a polygon with less vertices
 			approxPolyDP(Mat(m_currentFrameContours[contour]), m_currentFrameContours[contour], 3, true);
@@ -297,6 +298,12 @@ void CamProcessor::Update()
 				m_lastFramePeople.erase(person++);
 			}
 			else {
+				if (m_oscHandler.ConnectionValid()) {
+					m_oscHandler.SendPerson(*person);
+				} else {
+					cout << "Person not sent: Connection invalid" << endl;
+					m_oscHandler.StartConnection();
+				}
 				person++;
 			}
 		}
@@ -341,11 +348,10 @@ int CamProcessor::GetUnusedID()
 {
 	int i = 0;
 
-	while (idList[i] != false && i<500)
+	while (idList[i] != false && i<MAX_PEOPLE)
 		i++;
 
-	if (i < 500) {
-		
+	if (i < MAX_PEOPLE) {
 		idList[i] = true;
 		return i;
 	}

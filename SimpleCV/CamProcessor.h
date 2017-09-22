@@ -3,10 +3,13 @@
 #include <opencv2/opencv.hpp>
 
 #include "Person.h"
+#include "OSCHandler.h"
 
 using namespace cv;
 using namespace openni;
 using namespace std;
+
+#define MAX_PEOPLE 50
 
 class CamProcessor
 {
@@ -56,8 +59,10 @@ private:
 	list<Person> m_lastFramePeople;
 	list<Person> m_currentFramePeople;
 
-	bool idList[500];
+	bool idList[MAX_PEOPLE];
 	int GetUnusedID();
+
+	OSCHandler m_oscHandler;
 };
 
 struct PeopleDistance
@@ -69,21 +74,6 @@ struct PeopleDistance
 
 	PeopleDistance::PeopleDistance(float _distance, Person* _person1, Person* _person2) : distance(_distance), person1(_person1), person2(_person2){
 	}
-	/*
-	bool PeopleDistance::operator<(PeopleDistance& other)
-	{
-		return (distance < other.distance);
-	}
-
-	void PeopleDistance::operator=(PeopleDistance& other)
-	{
-		/*
-		distance = other.distance;
-		person1 = other.person1;
-		person2 = other.person2;
-		
-	}
-*/
 };
 
 struct is_smaller_functor

@@ -1,5 +1,10 @@
-﻿  Person.cpp
-c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\person.cpp(28): warning C4244: 'return': conversion from 'int' to 'float', possible loss of data
-c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\person.cpp(40): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+﻿  main.cpp
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+  OSCHandler.cpp
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oschandler.cpp(44): warning C4267: 'argument': conversion from 'size_t' to 'oscpkt::int32_t', possible loss of data
+  CamProcessor.cpp
+c:\users\preciousmetals\documents\github\astra-openni-and-opencv\simplecv\oscpkt\udp.hh(352): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data
+  Generating Code...
   SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Debug\SimpleCV.exe
   SimpleCV.vcxproj -> C:\Users\preciousMetals\Documents\GitHub\Astra-OpenNI-and-OpenCV\x64\Debug\SimpleCV.pdb (Partial PDB)
