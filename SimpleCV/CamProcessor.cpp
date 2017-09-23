@@ -288,6 +288,14 @@ void CamProcessor::Update()
 				}
 			}
 
+			if (m_oscHandler.ConnectionValid()) {
+				m_oscHandler.SendPerson(*person);
+			}
+			else {
+				cout << "Person not sent: Connection invalid" << endl;
+				m_oscHandler.StartConnection();
+			}
+
 			person->Update();
 
 			if (person->m_deleted != false)
@@ -298,12 +306,7 @@ void CamProcessor::Update()
 				m_lastFramePeople.erase(person++);
 			}
 			else {
-				if (m_oscHandler.ConnectionValid()) {
-					m_oscHandler.SendPerson(*person);
-				} else {
-					cout << "Person not sent: Connection invalid" << endl;
-					m_oscHandler.StartConnection();
-				}
+				
 				person++;
 			}
 		}
@@ -314,7 +317,9 @@ void CamProcessor::Update()
 		WriteGUIText("Number of Contours Current: " + to_string(m_currentFramePeople.size()), Point(5, 465));
 
 		///// CREATE FINAL IMAGE /////
-		m_outputImage = m_textOverlay + m_contourDrawings;
+		Mat m_colorShiftedDepthImg;
+		m_rawDepthImage.convertTo(m_colorShiftedDepthImg, CV_8U, 255.0f / (ASTRA_MAX_RANGE - ASTRA_MIN_RANGE), 0);
+		m_outputImage = m_textOverlay + m_contourDrawings + m_colorShiftedDepthImg;
 	}
 }
 

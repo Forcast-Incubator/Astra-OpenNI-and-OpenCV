@@ -36,20 +36,23 @@ void OSCHandler::SendPerson(Person& person)
 		m_oscMessage.pushInt32(person.m_centroidPrev.y);
 
 		// CONTOURS
-		m_oscMessage.pushInt32(person.m_contourNext.size());
+		int numContours = 0;
 		for (int i = 0; i < person.m_contourNext.size(); i++)
 		{
 			Point position = person.m_contourNext[i];
-			Point velocity = person.m_contourNext[i];
+			Point velocity = person.m_velocityList[i];
 			Point difference = position - velocity;
-			if (difference.x * difference.x + difference.y * difference.y > 2.0f)
+			if (difference.x * difference.x + difference.y * difference.y > 1.0f)
 			{
 				m_oscMessage.pushInt32(position.x);
 				m_oscMessage.pushInt32(position.y);
 				m_oscMessage.pushInt32(velocity.x);
 				m_oscMessage.pushInt32(velocity.y);
+				numContours++;
 			}
 		}
+
+		m_oscMessage.pushInt32(numContours);
 
 		m_packetWriter.init();
 		m_packetWriter.startBundle();
